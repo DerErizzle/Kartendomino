@@ -16,14 +16,9 @@
 
       <!-- Gegnerische Spieler am oberen Rand -->
       <div class="opponents-container">
-        <Player v-for="player in opponents" :key="player.username" 
-          :username="player.username" 
-          :avatar="player.avatar"
-          :cardCount="handSizes[player.username] || 0" 
-          :passCount="passCounts[player.username] || 0"
-          :isCurrentPlayer="currentPlayer === player.username" 
-          :position="player.position" 
-          :showCards="true" />
+        <Player v-for="player in opponents" :key="player.username" :username="player.username" :avatar="player.avatar"
+          :cardCount="handSizes[player.username] || 0" :passCount="passCounts[player.username] || 0"
+          :isCurrentPlayer="currentPlayer === player.username" :position="player.position" :showCards="true" />
       </div>
 
       <!-- Spielfeld in der Mitte -->
@@ -45,7 +40,7 @@
       <div class="game-actions">
         <button class="btn-action" @click="passesRemaining > 0 ? passMove() : forfeitGame()" :disabled="!isMyTurn"
           :class="{ 'btn-forfeit': passesRemaining <= 0 }">
-          {{ passesRemaining > 0 ? `Passen (${passesRemaining}/3)` : 'Aufgeben' }}
+          {{ passesRemaining > 0 ? `Passen (${passCounts[username] || 0}/3)` : 'Aufgeben' }}
         </button>
       </div>
 
@@ -139,13 +134,24 @@ export default {
     },
 
     opponents() {
-      // Erst prüfen, ob players Array korrekt definiert ist
+      // Wenn wir die Gegner aus playerPositions erstellen können (enthält die Bots)
+      if (this.playerPositions && Object.keys(this.playerPositions).length > 0) {
+        return Object.keys(this.playerPositions).map(username => {
+          return {
+            username,
+            position: this.playerPositions[username],
+            avatar: null,
+            isBot: username.includes('Bot')
+          };
+        }).sort((a, b) => a.position - b.position);
+      }
+
+      // Fallback zur ursprünglichen Logik
       if (!this.players || this.players.length === 0) {
         console.warn('No players data available');
         return [];
       }
 
-      // Gegner nach Position sortieren (für konsistente Anzeige)
       return this.players
         .filter(player => player.username !== this.username)
         .map(player => ({

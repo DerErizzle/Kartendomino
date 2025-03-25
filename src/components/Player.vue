@@ -1,29 +1,21 @@
 <template>
-  <div class="player-container" :class="{ 'current-turn': isCurrentPlayer, 'position-1': position === 1, 'position-2': position === 2, 'position-3': position === 3 }">
+  <div class="player-container"
+    :class="{ 'current-turn': isCurrentPlayer, 'position-1': position === 1, 'position-2': position === 2, 'position-3': position === 3 }">
     <div class="player-info">
       <div class="avatar">
         <img v-if="avatar" :src="avatar" alt="Avatar" />
         <span v-else>{{ getInitials(username) }}</span>
       </div>
-      
+
       <div class="player-details">
         <div class="player-name">{{ username }}</div>
         <div class="pass-counter">Passen {{ passCount }}/3</div>
       </div>
     </div>
-    
+
     <div class="player-cards" v-if="showCards && cardCount > 0">
-      <Card 
-        v-for="i in Math.min(cardCount, 7)" 
-        :key="i" 
-        :isFaceDown="true" 
-        :scale="0.7"
-        :clickable="false"
-        class="opponent-card" 
-        :style="getCardStyle(i-1)"
-      />
-      
-      <div class="card-count" v-if="cardCount > 7">+{{ cardCount - 7 }}</div>
+      <Card v-for="i in cardCount" :key="i" :isFaceDown="true" :scale="0.7" :clickable="false" class="opponent-card"
+        :style="getCardStyle(i - 1)" />
     </div>
   </div>
 </template>
@@ -70,17 +62,14 @@ export default {
     getInitials(name) {
       return name.split(' ').map(n => n[0]).join('').toUpperCase();
     },
-    
+
     getCardStyle(index) {
-      // Überlappung zwischen Karten
-      const spacing = 15;
-      
-      // Karten im Fächer anordnen (nur leicht überlappend)
+      const spacing = 12;
+
       return {
         position: 'absolute',
         left: `${index * spacing}px`,
         zIndex: index + 1,
-        transform: `rotate(${-5 + index * 2}deg)`,
         transformOrigin: 'bottom center'
       };
     }
@@ -107,7 +96,7 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 200px;
+  width: 250px;
 }
 
 .current-turn {
@@ -165,7 +154,7 @@ export default {
 .player-cards {
   position: relative;
   height: 85px;
-  width: 160px;
+  width: 170px;
   margin-top: 5px;
   perspective: 800px;
 }
@@ -175,16 +164,12 @@ export default {
   transition: transform 0.2s ease;
 }
 
-.card-count {
-  position: absolute;
-  right: -5px;
-  bottom: -5px;
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 3px 6px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: bold;
-  box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+.opponent-card:hover {
+  transform: none !important;
 }
+
+.player-cards .card.face-down:hover {
+  transform: none !important;
+}
+
 </style>

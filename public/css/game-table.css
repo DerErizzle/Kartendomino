@@ -37,7 +37,7 @@
   /* Positions-Stile für Gegner */
   .position-1 {
     position: absolute;
-    left: 20px;
+    left: 50px;
     top: 10px;
   }
   
@@ -50,17 +50,8 @@
   
   .position-3 {
     position: absolute;
-    right: 20px;
+    right: 50px;
     top: 10px;
-  }
-  
-  /* Unterschiedliche Kartenanordnung je nach Position */
-  .position-1 .player-cards {
-    transform: rotate(-5deg);
-  }
-  
-  .position-3 .player-cards {
-    transform: rotate(5deg);
   }
     
   /* Aktions-Buttons (Passen/Aufgeben) - fest am linken Rand */
