@@ -1,75 +1,48 @@
 <template>
   <div class="game-container">
     <div class="game-table">
-      <!-- Tischmarkierungen im Hintergrund -->
-      <div class="table-marking left">SEVENS</div>
-      <div class="table-marking right">SEVENS</div>
-      
+
+      <!-- Debug Info -->
+      <div class="debug-info" v-if="showDebug">
+        <pre>{{ JSON.stringify({ opponents: opponents.length, handSizes }, null, 2) }}</pre>
+      </div>
+
       <!-- Gegnerische Spieler am oberen Rand -->
       <div class="opponents-container">
-        <Player
-          v-for="player in opponents"
-          :key="player.username"
-          :username="player.username"
-          :avatar="player.avatar"
-          :cardCount="player.cardCount"
-          :passCount="passCounts[player.username] || 0"
-          :isCurrentPlayer="currentPlayer === player.username"
-          :position="getPlayerPosition(player.username)"
-          :showCards="true"
-        />
+        <Player v-for="player in opponents" :key="player.username" :username="player.username" :avatar="player.avatar"
+          :cardCount="handSizes[player.username] || 0" :passCount="passCounts[player.username] || 0"
+          :isCurrentPlayer="currentPlayer === player.username" :position="player.position" :showCards="true" />
       </div>
-      
+
       <!-- Spielfeld in der Mitte -->
       <div class="game-board">
         <!-- Die vier 7er Karten in der Mitte -->
         <div class="seven-cards">
-          <Card
-            v-for="card in sevenCards"
-            :key="card.id"
-            :card="card"
-            :playable="false"
-            :position="getSevenCardPosition(card)"
-            :clickable="false"
-          />
+          <Card v-for="card in sevenCards" :key="card.id" :card="card" :playable="false"
+            :position="getSevenCardPosition(card)" :clickable="false" />
         </div>
-        
+
         <!-- Alle anderen Karten auf dem Spielfeld -->
         <div class="board-cards">
-          <Card
-            v-for="card in nonSevenCards"
-            :key="card.id"
-            :card="card"
-            :playable="false"
-            :position="getBoardCardPosition(card)"
-            :clickable="false"
-          />
+          <Card v-for="card in nonSevenCards" :key="card.id" :card="card" :playable="false"
+            :position="getBoardCardPosition(card)" :clickable="false" />
         </div>
       </div>
-      
+
       <!-- Aktionsbuttons -->
       <div class="game-actions">
-        <button 
-          class="btn-action" 
-          @click="passesRemaining > 0 ? passMove() : forfeitGame()"
-          :disabled="!isMyTurn"
-          :class="{ 'btn-forfeit': passesRemaining <= 0 }"
-        >
+        <button class="btn-action" @click="passesRemaining > 0 ? passMove() : forfeitGame()" :disabled="!isMyTurn"
+          :class="{ 'btn-forfeit': passesRemaining <= 0 }">
           {{ passesRemaining > 0 ? `Passen (${passesRemaining}/3)` : 'Aufgeben' }}
         </button>
       </div>
-      
+
       <!-- Spieler-Handkarten unten -->
       <div class="hand-container">
-        <CardHand
-          :cards="hand"
-          :isMyTurn="isMyTurn"
-          :playableCards="playableCards"
-          :maxWidth="handMaxWidth"
-          @play-card="playCard"
-        />
+        <CardHand :cards="hand" :isMyTurn="isMyTurn" :playableCards="playableCards" :maxWidth="handMaxWidth"
+          @play-card="playCard" />
       </div>
-      
+
       <!-- Spielstatus Overlay -->
       <div class="game-status" v-if="gameOver">
         <div class="status-modal">
@@ -111,63 +84,70 @@ export default {
     return {
       handMaxWidth: 0,
       windowWidth: 0,
-      windowHeight: 0
+      windowHeight: 0,
+      showDebug: true // Debug-Informationen anzeigen
     };
   },
   computed: {
     // Aus Vuex Store geladen
     username() { return this.$store.state.username; },
-    cards() { return this.$store.state.cards; },
-    hand() { return this.$store.state.hand; },
-    players() { return this.$store.state.players; },
+    cards() { return this.$store.state.cards || []; },
+    hand() { return this.$store.state.hand || []; },
+    players() { return this.$store.state.players || []; },
     currentPlayer() { return this.$store.state.currentPlayer; },
-    passCounts() { return this.$store.state.passCounts; },
-    playerPositions() { return this.$store.state.playerPositions; },
-    winners() { return this.$store.state.winners; },
+    passCounts() { return this.$store.state.passCounts || {}; },
+    playerPositions() { return this.$store.state.playerPositions || {}; },
+    winners() { return this.$store.state.winners || []; },
     gameOver() { return this.$store.state.gameOver; },
-    
+    handSizes() { return this.$store.state.handSizes || {}; },
+
     // Abgeleitete Eigenschaften
     isMyTurn() {
       return this.currentPlayer === this.username;
     },
-    
+
     passesRemaining() {
       return 3 - (this.passCounts[this.username] || 0);
     },
-    
+
     playableCards() {
       if (!this.isMyTurn) return [];
-      
+
       return this.hand.filter(card => {
         return this.cards.some(boardCard => {
           // Gleiche Farbe und Wert ist um 1 höher oder niedriger
           const sameSuit = boardCard.suit === card.suit;
           const cardValue = parseInt(card.value);
           const boardValue = parseInt(boardCard.value);
-          
+
           // Benachbarte Karten
           return sameSuit && Math.abs(cardValue - boardValue) === 1;
         });
       });
     },
-    
+
     opponents() {
+      // Erst prüfen, ob players Array korrekt definiert ist
+      if (!this.players || this.players.length === 0) {
+        console.warn('No players data available');
+        return [];
+      }
+
       // Gegner nach Position sortieren (für konsistente Anzeige)
       return this.players
         .filter(player => player.username !== this.username)
         .map(player => ({
           ...player,
-          cardCount: (this.$store.state.handSizes && this.$store.state.handSizes[player.username]) || 0,
           position: this.getPlayerPosition(player.username)
         }))
         .sort((a, b) => a.position - b.position);
     },
-    
+
     // 7er-Karten für die Mitte
     sevenCards() {
       return this.cards.filter(card => card.value === '07');
     },
-    
+
     // Alle anderen Karten
     nonSevenCards() {
       return this.cards.filter(card => card.value !== '07');
@@ -179,15 +159,15 @@ export default {
       if (this.playerPositions && this.playerPositions[username]) {
         return this.playerPositions[username];
       }
-      
+
       // Ansonsten, berechne eine Standard-Position basierend auf dem Index
       const index = this.players.findIndex(p => p.username === username);
       if (index === -1) return 1;
-      
+
       // Verteile die Positionen 1, 2, 3 (links, mitte, rechts)
       return (index % 3) + 1;
     },
-    
+
     getSevenCardPosition(card) {
       // Die 7er-Karten sollen in der Mitte untereinander sein
       const suitIndex = ['c', 'd', 'h', 's'].indexOf(card.suit);
@@ -196,23 +176,27 @@ export default {
         col: 7 // In der horizontalen Mitte (Spalte 7)
       };
     },
-    
+
     getBoardCardPosition(card) {
+      if (card.position) {
+        return card.position;
+      }
+
       // Position basierend auf Farbe und Wert berechnen
       const suitIndex = ['c', 'd', 'h', 's'].indexOf(card.suit);
       const value = parseInt(card.value);
-      
+
       // Werte <= 6 sind links der 7, Werte >= 8 sind rechts der 7
       return {
         row: suitIndex,
         col: value // Der Wert bestimmt direkt die Spalte
       };
     },
-    
+
     playCard(card) {
       // Position auf dem Board berechnen
       const position = this.findPositionForCard(card);
-      
+
       if (position) {
         this.$store.dispatch('playCard', {
           roomId: this.roomId,
@@ -221,21 +205,21 @@ export default {
         });
       }
     },
-    
+
     findPositionForCard(card) {
       // Finde eine passende Position auf dem Board
       for (const boardCard of this.cards) {
         if (boardCard.suit === card.suit) {
           const cardValue = parseInt(card.value);
           const boardValue = parseInt(boardCard.value);
-          
+
           if (Math.abs(cardValue - boardValue) === 1) {
             // Position berechnen
             const position = {
               row: ['c', 'd', 'h', 's'].indexOf(card.suit),
               col: cardValue
             };
-            
+
             // Prüfen, ob die Position frei ist
             if (!this.isPositionOccupied(position)) {
               return position;
@@ -243,17 +227,17 @@ export default {
           }
         }
       }
-      
+
       return null;
     },
-    
+
     isPositionOccupied(position) {
       return this.cards.some(card => {
         const cardPos = card.position || this.getBoardCardPosition(card);
         return cardPos.row === position.row && cardPos.col === position.col;
       });
     },
-    
+
     passMove() {
       if (this.isMyTurn && this.passesRemaining > 0) {
         this.$store.dispatch('pass', {
@@ -261,7 +245,7 @@ export default {
         });
       }
     },
-    
+
     forfeitGame() {
       if (this.isMyTurn) {
         this.$store.dispatch('forfeit', {
@@ -269,14 +253,14 @@ export default {
         });
       }
     },
-    
+
     leaveGame() {
       this.$store.dispatch('leaveRoom', {
         roomId: this.roomId
       });
       this.$router.push('/');
     },
-    
+
     updateWindowSize() {
       this.windowWidth = window.innerWidth;
       this.windowHeight = window.innerHeight;
@@ -286,10 +270,33 @@ export default {
   created() {
     window.addEventListener('resize', this.updateWindowSize);
     this.updateWindowSize();
+
+    // Socket-Status prüfen und ggf. Reconnect versuchen
+    if (!this.$store.state.gameStarted) {
+      console.log("Reconnecting to game room...");
+      this.$store.dispatch('reconnectToRoom', {
+        username: this.username,
+        roomId: this.roomId
+      });
+    }
+
+    console.log('Game component created', {
+      players: this.players,
+      handSizes: this.handSizes,
+      opponents: this.opponents,
+      currentPlayer: this.currentPlayer
+    });
+  },
+  mounted() {
+    console.log('Game component mounted', {
+      players: this.players,
+      handSizes: this.handSizes,
+      opponents: this.opponents
+    });
   },
   beforeUnmount() {
     window.removeEventListener('resize', this.updateWindowSize);
-    
+
     // Beim Verlassen der Komponente den Raum verlassen
     if (this.roomId && !this.gameOver) {
       this.$store.dispatch('leaveRoom', { roomId: this.roomId });
@@ -309,205 +316,191 @@ export default {
 .game-table {
   width: 100%;
   height: 100%;
-  background-color: #1b7e44; /* Grüner Spieltisch */
+  background-color: #1b7e44;
+  /* Grüner Spieltisch */
   position: relative;
 }
 
-/* Tischmarkierungen im Hintergrund */
-.table-marking {
+/* Debug Info Box */
+.debug-info {
   position: absolute;
-  font-size: 120px;
-  color: rgba(255, 255, 255, 0.1);
-  transform: rotate(-30deg);
-  white-space: nowrap;
-  pointer-events: none;
-  font-weight: bold;
-}
-
-.table-marking.left {
-  left: -100px;
-  top: 30%;
-}
-
-.table-marking.right {
-  right: -100px;
-  bottom: 30%;
-}
-
-/* Gegner am oberen Bildschirmrand */
-.opponents-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: space-between;
+  bottom: 450px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
   padding: 10px;
-  z-index: 10;
-  pointer-events: none;
-}
-
-.opponents-container > * {
-  pointer-events: auto;
-}
-
-/* Spielfeld in der Mitte */
-.game-board {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 80%;
-  height: 60%;
-  max-width: 1200px;
-}
-
-.seven-cards, .board-cards {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-}
-
-/* Aktionsbuttons - am linken Rand */
-.game-actions {
-  position: absolute;
-  bottom: 140px;
-  left: 30px;
-  z-index: 10;
-  display: block;
-}
-
-.btn-action {
-  padding: 10px 25px;
-  border-radius: 25px;
-  border: none;
-  background-color: white;
-  color: #1b7e44;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-action:hover:not(:disabled) {
-  transform: translateY(-3px);
-}
-
-.btn-action:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.btn-action:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-forfeit {
-  background-color: #dc3545;
-  color: white;
-}
-
-/* Handkarten unten */
-.hand-container {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 90%;
-  max-width: 1200px;
-}
-
-/* Spielstatus Overlay */
-.game-status {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.status-modal {
-  background-color: white;
-  border-radius: 10px;
-  padding: 30px;
-  width: 90%;
-  max-width: 500px;
-  text-align: center;
-}
-
-.status-modal h2 {
-  color: #1b7e44;
-  margin-bottom: 20px;
-}
-
-.winners-list {
-  text-align: left;
-  margin: 20px 0;
-}
-
-.winners-list ol {
-  padding-left: 40px;
-}
-
-.winners-list li {
-  margin-bottom: 5px;
-}
-
-.btn-new-game {
-  background-color: #28a745;
-  color: white;
-  border: none;
-  padding: 12px 25px;
   border-radius: 5px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
+  font-family: monospace;
+  font-size: 12px;
+  z-index: 9999;
+  max-width: 300px;
+  max-height: 200px;
+  overflow: auto;
 
-.btn-new-game:hover {
-  background-color: #218838;
-}
+  /* Gegner am oberen Bildschirmrand */
+  .opponents-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    z-index: 10;
+    height: 140px;
+  }
 
-/* Responsives Design */
-@media (max-width: 768px) {
+  /* Spielfeld in der Mitte */
   .game-board {
-    width: 95%;
-    height: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    height: 60%;
+    max-width: 1200px;
   }
-  
-  .hand-container {
-    bottom: 10px;
-  }
-  
-  .game-actions {
-    bottom: 120px;
-    left: 20px;
-  }
-  
-  .table-marking {
-    font-size: 80px;
-  }
-}
 
-@media (max-width: 480px) {
+  .seven-cards,
+  .board-cards {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Aktionsbuttons - am linken Rand */
   .game-actions {
-    bottom: 100px;
-    left: 15px;
+    position: absolute;
+    bottom: 140px;
+    left: 30px;
+    z-index: 10;
+    display: block;
   }
-  
+
   .btn-action {
-    padding: 8px 20px;
-    font-size: 14px;
+    padding: 10px 25px;
+    border-radius: 25px;
+    border: none;
+    background-color: white;
+    color: #1b7e44;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
   }
-  
-  .table-marking {
-    font-size: 60px;
+
+  .btn-action:hover:not(:disabled) {
+    transform: translateY(-3px);
+  }
+
+  .btn-action:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .btn-action:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .btn-forfeit {
+    background-color: #dc3545;
+    color: white;
+  }
+
+  /* Handkarten unten */
+  .hand-container {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 1200px;
+  }
+
+  /* Spielstatus Overlay */
+  .game-status {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  .status-modal {
+    background-color: white;
+    border-radius: 10px;
+    padding: 30px;
+    width: 90%;
+    max-width: 500px;
+    text-align: center;
+  }
+
+  .status-modal h2 {
+    color: #1b7e44;
+    margin-bottom: 20px;
+  }
+
+  .winners-list {
+    text-align: left;
+    margin: 20px 0;
+  }
+
+  .winners-list ol {
+    padding-left: 40px;
+  }
+
+  .winners-list li {
+    margin-bottom: 5px;
+  }
+
+  .btn-new-game {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 5px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .btn-new-game:hover {
+    background-color: #218838;
+  }
+
+  /* Responsives Design */
+  @media (max-width: 768px) {
+    .game-board {
+      width: 95%;
+      height: 50%;
+    }
+
+    .hand-container {
+      bottom: 10px;
+    }
+
+    .game-actions {
+      bottom: 120px;
+      left: 20px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .game-actions {
+      bottom: 100px;
+      left: 15px;
+    }
+
+    .btn-action {
+      padding: 8px 20px;
+      font-size: 14px;
+    }
   }
 }
 </style>

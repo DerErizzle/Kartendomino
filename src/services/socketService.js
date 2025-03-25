@@ -47,40 +47,56 @@ socket.on('connect_timeout', () => {
 
 socket.on('roomCreated', ({ roomId }) => {
   store.commit('setRoomId', roomId);
+  console.log('Room created:', roomId);
 });
 
 socket.on('playersUpdate', ({ players }) => {
   store.commit('setPlayers', players);
+  console.log('Players updated:', players);
 });
 
 socket.on('gameStarted', ({ currentPlayer, hand, cards, playerPositions, handSizes }) => {
+  console.log('Game started event received:', { currentPlayer, handSizes, playerPositions });
+  
+  // Session im localStorage speichern
+  const gameSession = {
+    username: store.state.username,
+    roomId: store.state.roomId,
+    gameStarted: true,
+    timestamp: new Date().getTime()
+  };
+  localStorage.setItem('gameSession', JSON.stringify(gameSession));
+  
   store.commit('setGameStarted', true);
   store.commit('setCurrentPlayer', currentPlayer);
-  store.commit('setHand', hand);
-  store.commit('setCards', cards);
-  store.commit('setPlayerPositions', playerPositions);
-  store.commit('setHandSizes', handSizes);
+  store.commit('setHand', hand || []);
+  store.commit('setCards', cards || []);
+  store.commit('setPlayerPositions', playerPositions || {});
+  store.commit('setHandSizes', handSizes || {});
 });
 
 socket.on('turnUpdate', ({ currentPlayer, cards, handSizes }) => {
+  console.log('Turn update received:', { currentPlayer, handSizes });
   store.commit('setCurrentPlayer', currentPlayer);
-  store.commit('setCards', cards);
+  store.commit('setCards', cards || []);
   if (handSizes) {
     store.commit('setHandSizes', handSizes);
   }
 });
 
 socket.on('handUpdate', ({ hand }) => {
-  store.commit('setHand', hand);
+  store.commit('setHand', hand || []);
 });
 
 socket.on('passUpdate', ({ player, passCounts }) => {
-  store.commit('setPassCounts', passCounts);
+  console.log('Pass update received:', passCounts);
+  store.commit('setPassCounts', passCounts || {});
 });
 
 socket.on('playerForfeit', ({ player, cards, passCounts, handSizes }) => {
-  store.commit('setCards', cards);
-  store.commit('setPassCounts', passCounts);
+  console.log('Player forfeit:', player, handSizes);
+  store.commit('setCards', cards || []);
+  store.commit('setPassCounts', passCounts || {});
   if (handSizes) {
     store.commit('setHandSizes', handSizes);
   }
@@ -92,9 +108,12 @@ socket.on('playerDisconnected', ({ username }) => {
 });
 
 socket.on('gameOver', ({ winners }) => {
-  winners.forEach(winner => {
-    store.commit('addWinner', winner);
-  });
+  console.log('Game over:', winners);
+  if (winners && winners.length) {
+    winners.forEach(winner => {
+      store.commit('addWinner', winner);
+    });
+  }
   store.commit('setGameOver', true);
 });
 

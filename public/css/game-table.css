@@ -7,28 +7,6 @@
     overflow: hidden;
   }
   
-  /* SEVENS-Markierung auf dem Spieltisch */
-  .table-marking {
-    position: absolute;
-    font-size: 120px;
-    color: rgba(255, 255, 255, 0.1);
-    transform: rotate(-30deg);
-    white-space: nowrap;
-    pointer-events: none;
-    font-weight: bold;
-    font-family: 'Roboto', sans-serif;
-  }
-  
-  .table-marking.left {
-    left: -100px;
-    top: 30%;
-  }
-  
-  .table-marking.right {
-    right: -100px;
-    bottom: 30%;
-  }
-  
   /* Spielkarten-Layout */
   .game-board {
     position: absolute;
@@ -147,10 +125,6 @@
       bottom: 10px;
       width: 95%;
     }
-    
-    .table-marking {
-      font-size: 80px;
-    }
   }
   
   @media (max-width: 480px) {
@@ -162,10 +136,6 @@
     .btn-action {
       padding: 6px 16px;
       font-size: 14px;
-    }
-    
-    .table-marking {
-      font-size: 60px;
     }
     
     .hand-container {

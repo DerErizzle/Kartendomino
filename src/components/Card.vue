@@ -17,7 +17,7 @@
     />
     <img 
       v-else 
-      src="/assets/card_cover.png" 
+      src="/assets/card_cover.png"
       alt="Card Back"
       class="card-image"
     />
@@ -30,7 +30,8 @@ export default {
   props: {
     card: {
       type: Object,
-      required: false
+      required: false,
+      default: null
     },
     playable: {
       type: Boolean,
@@ -42,7 +43,7 @@ export default {
     },
     position: {
       type: Object,
-      default: () => null
+      default: null
     },
     scale: {
       type: Number,
@@ -111,12 +112,14 @@ export default {
       
       return `${value} of ${suit}`;
     }
+  },
+  mounted() {
+    console.log('Card mounted, isFaceDown:', this.isFaceDown);
   }
 }
 </script>
 
 <style>
-/* Vollständig überarbeitetes CSS ohne gelbe Hervorhebungen oder Schatten */
 .card {
   display: inline-block;
   user-select: none;
@@ -160,11 +163,5 @@ export default {
 
 .face-down:hover {
   transform: translateY(-3px);
-}
-
-@keyframes glow {
-  0%, 50%, 100% { 
-    box-shadow: none !important; 
-  }
 }
 </style>

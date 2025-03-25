@@ -13,14 +13,15 @@
     </div>
     
     <div class="player-cards" v-if="showCards && cardCount > 0">
-      <div 
+      <Card 
         v-for="i in Math.min(cardCount, 7)" 
         :key="i" 
-        class="opponent-card"
+        :isFaceDown="true" 
+        :scale="0.7"
+        :clickable="false"
+        class="opponent-card" 
         :style="getCardStyle(i-1)"
-      >
-        <Card :isFaceDown="true" :clickable="false" :scale="0.7" />
-      </div>
+      />
       
       <div class="card-count" v-if="cardCount > 7">+{{ cardCount - 7 }}</div>
     </div>
@@ -83,6 +84,9 @@ export default {
         transformOrigin: 'bottom center'
       };
     }
+  },
+  mounted() {
+    console.log('Player mounted:', this.username, 'with cardCount:', this.cardCount);
   }
 }
 </script>
@@ -98,7 +102,6 @@ export default {
   flex-direction: column;
   align-items: center;
   width: 200px;
-  position: relative;
 }
 
 .current-turn {
@@ -162,8 +165,8 @@ export default {
 }
 
 .opponent-card {
+  position: absolute !important;
   transition: transform 0.2s ease;
-  display: inline-block;
 }
 
 .card-count {
