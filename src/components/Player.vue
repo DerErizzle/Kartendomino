@@ -86,7 +86,13 @@ export default {
     }
   },
   mounted() {
-    console.log('Player mounted:', this.username, 'with cardCount:', this.cardCount);
+    console.log('Player mounted:', {
+      username: this.username,
+      cardCount: this.cardCount,
+      position: this.position,
+      showCards: this.showCards,
+      isCurrentPlayer: this.isCurrentPlayer
+    });
   }
 }
 </script>
@@ -180,73 +186,5 @@ export default {
   font-size: 12px;
   font-weight: bold;
   box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
-}
-
-/* Positionsabhängige Stile */
-.position-1 {
-  position: absolute;
-  left: 20px;
-  top: 10px;
-}
-
-.position-2 {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  top: 10px;
-}
-
-.position-3 {
-  position: absolute;
-  right: 20px;
-  top: 10px;
-}
-
-/* Unterschiedliche Kartenanordnung je nach Position */
-.position-1 .player-cards {
-  transform: rotate(-5deg);
-}
-
-.position-3 .player-cards {
-  transform: rotate(5deg);
-}
-
-/* Responsives Design für kleinere Bildschirme */
-@media (max-width: 768px) {
-  .player-container {
-    width: 180px;
-    padding: 8px;
-  }
-  
-  .player-cards {
-    width: 140px;
-    height: 75px;
-  }
-  
-  .avatar {
-    width: 30px;
-    height: 30px;
-    font-size: 14px;
-  }
-  
-  .player-name {
-    font-size: 12px;
-  }
-  
-  .pass-counter {
-    font-size: 10px;
-  }
-}
-
-@media (max-width: 480px) {
-  .player-container {
-    width: 120px;
-    padding: 5px;
-  }
-  
-  .player-cards {
-    width: 100px;
-    height: 65px;
-  }
 }
 </style>

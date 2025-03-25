@@ -6,7 +6,7 @@
     position: relative;
     overflow: hidden;
   }
-  
+    
   /* Spielkarten-Layout */
   .game-board {
     position: absolute;
@@ -20,7 +20,7 @@
     grid-template-rows: repeat(4, 1fr);
     grid-gap: 10px;
   }
-  
+    
   /* Karten der Gegner */
   .opponents-container {
     position: absolute;
@@ -31,8 +31,38 @@
     justify-content: space-between;
     padding: 10px 20px;
     z-index: 10;
+    height: 140px;
   }
   
+  /* Positions-Stile für Gegner */
+  .position-1 {
+    position: absolute;
+    left: 20px;
+    top: 10px;
+  }
+  
+  .position-2 {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 10px;
+  }
+  
+  .position-3 {
+    position: absolute;
+    right: 20px;
+    top: 10px;
+  }
+  
+  /* Unterschiedliche Kartenanordnung je nach Position */
+  .position-1 .player-cards {
+    transform: rotate(-5deg);
+  }
+  
+  .position-3 .player-cards {
+    transform: rotate(5deg);
+  }
+    
   /* Aktions-Buttons (Passen/Aufgeben) - fest am linken Rand */
   .game-actions {
     position: absolute;
@@ -41,7 +71,7 @@
     z-index: 10;
     display: block; /* Verhindert Flex-Zentrierung */
   }
-  
+    
   .btn-action {
     background-color: white;
     color: #1b7e44;
@@ -50,26 +80,27 @@
     font-weight: bold;
     transition: all 0.2s ease;
     border: none;
+    cursor: pointer;
   }
-  
+    
   .btn-action:hover:not(:disabled) {
     transform: translateY(-3px);
   }
-  
+    
   .btn-action:active:not(:disabled) {
     transform: translateY(0);
   }
-  
+    
   .btn-action:disabled {
     opacity: 0.6;
     cursor: not-allowed;
   }
-  
+    
   .btn-forfeit {
     background-color: #dc3545;
     color: white;
   }
-  
+    
   /* Spielerkarten am unteren Rand */
   .hand-container {
     position: absolute;
@@ -80,7 +111,7 @@
     max-width: 1200px;
     z-index: 10;
   }
-  
+    
   /* Spielstatus Overlay */
   .game-status {
     position: fixed;
@@ -94,7 +125,7 @@
     justify-content: center;
     z-index: 1000;
   }
-  
+    
   .status-modal {
     background-color: white;
     border-radius: 15px;
@@ -104,41 +135,78 @@
     text-align: center;
   }
   
+  /* Debug Info Box */
+  .debug-info {
+    position: absolute;
+    bottom: 450px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    font-family: monospace;
+    font-size: 12px;
+    z-index: 9999;
+    max-width: 300px;
+    max-height: 200px;
+    overflow: auto;
+  }
+    
   /* Responsive Design */
   @media (max-width: 768px) {
     .game-board {
       width: 95%;
       height: 50%;
     }
-    
+      
     .game-actions {
       bottom: 120px;
       left: 20px;
     }
-    
+      
     .btn-action {
       padding: 8px 20px;
       font-size: 14px;
     }
-    
+      
     .hand-container {
       bottom: 10px;
       width: 95%;
     }
-  }
   
+    .player-container {
+      width: 180px;
+      padding: 8px;
+    }
+    
+    .player-cards {
+      width: 140px;
+      height: 75px;
+    }
+  }
+    
   @media (max-width: 480px) {
     .game-actions {
       bottom: 100px;
       left: 15px;
     }
-    
+      
     .btn-action {
       padding: 6px 16px;
       font-size: 14px;
     }
-    
+      
     .hand-container {
       bottom: 5px;
+    }
+  
+    .player-container {
+      width: 120px;
+      padding: 5px;
+    }
+    
+    .player-cards {
+      width: 100px;
+      height: 65px;
     }
   }

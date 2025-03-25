@@ -4,14 +4,26 @@
 
       <!-- Debug Info -->
       <div class="debug-info" v-if="showDebug">
-        <pre>{{ JSON.stringify({ opponents: opponents.length, handSizes }, null, 2) }}</pre>
+        <pre>{{ JSON.stringify({
+          username,
+          opponents: opponents.length,
+          handSizes,
+          players: players.length,
+          playerPositions,
+          currentPlayer
+        }, null, 2) }}</pre>
       </div>
 
       <!-- Gegnerische Spieler am oberen Rand -->
       <div class="opponents-container">
-        <Player v-for="player in opponents" :key="player.username" :username="player.username" :avatar="player.avatar"
-          :cardCount="handSizes[player.username] || 0" :passCount="passCounts[player.username] || 0"
-          :isCurrentPlayer="currentPlayer === player.username" :position="player.position" :showCards="true" />
+        <Player v-for="player in opponents" :key="player.username" 
+          :username="player.username" 
+          :avatar="player.avatar"
+          :cardCount="handSizes[player.username] || 0" 
+          :passCount="passCounts[player.username] || 0"
+          :isCurrentPlayer="currentPlayer === player.username" 
+          :position="player.position" 
+          :showCards="true" />
       </div>
 
       <!-- Spielfeld in der Mitte -->
@@ -291,7 +303,8 @@ export default {
     console.log('Game component mounted', {
       players: this.players,
       handSizes: this.handSizes,
-      opponents: this.opponents
+      opponents: this.opponents,
+      currentPlayer: this.currentPlayer
     });
   },
   beforeUnmount() {
@@ -311,196 +324,5 @@ export default {
   height: 100vh;
   overflow: hidden;
   position: relative;
-}
-
-.game-table {
-  width: 100%;
-  height: 100%;
-  background-color: #1b7e44;
-  /* Grüner Spieltisch */
-  position: relative;
-}
-
-/* Debug Info Box */
-.debug-info {
-  position: absolute;
-  bottom: 450px;
-  left: 10px;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 10px;
-  border-radius: 5px;
-  font-family: monospace;
-  font-size: 12px;
-  z-index: 9999;
-  max-width: 300px;
-  max-height: 200px;
-  overflow: auto;
-
-  /* Gegner am oberen Bildschirmrand */
-  .opponents-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    display: flex;
-    justify-content: space-between;
-    padding: 10px;
-    z-index: 10;
-    height: 140px;
-  }
-
-  /* Spielfeld in der Mitte */
-  .game-board {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 80%;
-    height: 60%;
-    max-width: 1200px;
-  }
-
-  .seven-cards,
-  .board-cards {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-  }
-
-  /* Aktionsbuttons - am linken Rand */
-  .game-actions {
-    position: absolute;
-    bottom: 140px;
-    left: 30px;
-    z-index: 10;
-    display: block;
-  }
-
-  .btn-action {
-    padding: 10px 25px;
-    border-radius: 25px;
-    border: none;
-    background-color: white;
-    color: #1b7e44;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .btn-action:hover:not(:disabled) {
-    transform: translateY(-3px);
-  }
-
-  .btn-action:active:not(:disabled) {
-    transform: translateY(0);
-  }
-
-  .btn-action:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .btn-forfeit {
-    background-color: #dc3545;
-    color: white;
-  }
-
-  /* Handkarten unten */
-  .hand-container {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 90%;
-    max-width: 1200px;
-  }
-
-  /* Spielstatus Overlay */
-  .game-status {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-  }
-
-  .status-modal {
-    background-color: white;
-    border-radius: 10px;
-    padding: 30px;
-    width: 90%;
-    max-width: 500px;
-    text-align: center;
-  }
-
-  .status-modal h2 {
-    color: #1b7e44;
-    margin-bottom: 20px;
-  }
-
-  .winners-list {
-    text-align: left;
-    margin: 20px 0;
-  }
-
-  .winners-list ol {
-    padding-left: 40px;
-  }
-
-  .winners-list li {
-    margin-bottom: 5px;
-  }
-
-  .btn-new-game {
-    background-color: #28a745;
-    color: white;
-    border: none;
-    padding: 12px 25px;
-    border-radius: 5px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.2s;
-  }
-
-  .btn-new-game:hover {
-    background-color: #218838;
-  }
-
-  /* Responsives Design */
-  @media (max-width: 768px) {
-    .game-board {
-      width: 95%;
-      height: 50%;
-    }
-
-    .hand-container {
-      bottom: 10px;
-    }
-
-    .game-actions {
-      bottom: 120px;
-      left: 20px;
-    }
-  }
-
-  @media (max-width: 480px) {
-    .game-actions {
-      bottom: 100px;
-      left: 15px;
-    }
-
-    .btn-action {
-      padding: 8px 20px;
-      font-size: 14px;
-    }
-  }
 }
 </style>
