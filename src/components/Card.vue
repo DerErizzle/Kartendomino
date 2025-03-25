@@ -2,8 +2,8 @@
   <div 
     class="card" 
     :class="{ 
-      'playable': playable, 
-      'unplayable': !playable && !isFaceDown && card && card.disconnected,
+      'playable': playable && !position, 
+      'unplayable': !playable && !isFaceDown && !position && card,
       'face-down': isFaceDown
     }"
     :style="cardStyle"
@@ -115,21 +115,32 @@ export default {
 }
 </script>
 
-<style scoped>
+<style>
+/* Vollständig überarbeitetes CSS ohne gelbe Hervorhebungen oder Schatten */
 .card {
   display: inline-block;
   user-select: none;
   border-radius: 8px;
   overflow: hidden;
   transition: transform 0.2s ease;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.card::before, 
+.card::after {
+  display: none !important;
+  content: none !important;
 }
 
 .card.playable {
   cursor: pointer;
+  animation: none !important;
 }
 
 .card.unplayable {
-  filter: brightness(60%);
+  opacity: 0.7;
+  filter: brightness(70%);
 }
 
 .card-image {
@@ -137,10 +148,23 @@ export default {
   height: 100%;
   object-fit: contain;
   border-radius: 8px;
+  display: block;
 }
 
 .playable:hover {
   transform: translateY(-10px);
   z-index: 100;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.face-down:hover {
+  transform: translateY(-3px);
+}
+
+@keyframes glow {
+  0%, 50%, 100% { 
+    box-shadow: none !important; 
+  }
 }
 </style>

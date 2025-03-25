@@ -14,15 +14,15 @@
     
     <div class="player-cards" v-if="showCards && cardCount > 0">
       <div 
-        v-for="i in Math.min(cardCount, 8)" 
+        v-for="i in Math.min(cardCount, 7)" 
         :key="i" 
         class="opponent-card"
         :style="getCardStyle(i-1)"
       >
-        <Card :isFaceDown="true" :clickable="false" :scale="0.8" />
+        <Card :isFaceDown="true" :clickable="false" :scale="0.7" />
       </div>
       
-      <div class="card-count" v-if="cardCount > 8">+{{ cardCount - 8 }}</div>
+      <div class="card-count" v-if="cardCount > 7">+{{ cardCount - 7 }}</div>
     </div>
   </div>
 </template>
@@ -71,12 +71,16 @@ export default {
     },
     
     getCardStyle(index) {
-      const spacing = 20; // Überlappung zwischen Karten
+      // Überlappung zwischen Karten
+      const spacing = 15;
       
+      // Karten im Fächer anordnen (nur leicht überlappend)
       return {
         position: 'absolute',
         left: `${index * spacing}px`,
-        zIndex: index
+        zIndex: index + 1,
+        transform: `rotate(${-5 + index * 2}deg)`,
+        transformOrigin: 'bottom center'
       };
     }
   }
@@ -87,29 +91,31 @@ export default {
 .player-container {
   padding: 10px;
   border-radius: 8px;
-  background-color: rgba(0, 0, 0, 0.1);
+  background-color: rgba(0, 0, 0, 0.2);
   margin: 5px;
   transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 180px;
+  width: 200px;
   position: relative;
 }
 
 .current-turn {
-  background-color: rgba(255, 255, 204, 0.3);
+  background-color: rgba(255, 255, 204, 0.4);
+  box-shadow: 0 0 10px rgba(255, 255, 0, 0.5);
 }
 
 .player-info {
   display: flex;
   align-items: center;
   width: 100%;
+  margin-bottom: 8px;
 }
 
 .avatar {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background-color: #1b7e44;
   color: white;
@@ -137,56 +143,107 @@ export default {
   font-weight: bold;
   font-size: 14px;
   color: white;
-  margin-bottom: 4px;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  margin-bottom: 2px;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
 }
 
 .pass-counter {
   font-size: 12px;
   color: white;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
 }
 
 .player-cards {
   position: relative;
-  height: 80px;
-  margin-top: 10px;
-  width: 180px;
+  height: 85px;
+  width: 160px;
+  margin-top: 5px;
+  perspective: 800px;
 }
 
 .opponent-card {
   transition: transform 0.2s ease;
+  display: inline-block;
 }
 
 .card-count {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
+  right: -5px;
+  bottom: -5px;
+  background-color: rgba(0, 0, 0, 0.8);
   color: white;
-  padding: 2px 6px;
+  padding: 3px 6px;
   border-radius: 10px;
   font-size: 12px;
   font-weight: bold;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
 }
 
 /* Positionsabhängige Stile */
 .position-1 {
   position: absolute;
   left: 20px;
-  top: 20px;
+  top: 10px;
 }
 
 .position-2 {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  top: 20px;
+  top: 10px;
 }
 
 .position-3 {
   position: absolute;
   right: 20px;
-  top: 20px;
+  top: 10px;
+}
+
+/* Unterschiedliche Kartenanordnung je nach Position */
+.position-1 .player-cards {
+  transform: rotate(-5deg);
+}
+
+.position-3 .player-cards {
+  transform: rotate(5deg);
+}
+
+/* Responsives Design für kleinere Bildschirme */
+@media (max-width: 768px) {
+  .player-container {
+    width: 180px;
+    padding: 8px;
+  }
+  
+  .player-cards {
+    width: 140px;
+    height: 75px;
+  }
+  
+  .avatar {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+  }
+  
+  .player-name {
+    font-size: 12px;
+  }
+  
+  .pass-counter {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .player-container {
+    width: 120px;
+    padding: 5px;
+  }
+  
+  .player-cards {
+    width: 100px;
+    height: 65px;
+  }
 }
 </style>

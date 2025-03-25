@@ -152,12 +152,15 @@ export default {
     },
     
     opponents() {
+      // Gegner nach Position sortieren (für konsistente Anzeige)
       return this.players
         .filter(player => player.username !== this.username)
         .map(player => ({
           ...player,
-          cardCount: (this.$store.state.handSizes && this.$store.state.handSizes[player.username]) || 0
-        }));
+          cardCount: (this.$store.state.handSizes && this.$store.state.handSizes[player.username]) || 0,
+          position: this.getPlayerPosition(player.username)
+        }))
+        .sort((a, b) => a.position - b.position);
     },
     
     // 7er-Karten für die Mitte
@@ -172,8 +175,17 @@ export default {
   },
   methods: {
     getPlayerPosition(username) {
-      const position = this.playerPositions[username];
-      return position || 1;
+      // Falls eine Position im Store definiert ist, verwende diese
+      if (this.playerPositions && this.playerPositions[username]) {
+        return this.playerPositions[username];
+      }
+      
+      // Ansonsten, berechne eine Standard-Position basierend auf dem Index
+      const index = this.players.findIndex(p => p.username === username);
+      if (index === -1) return 1;
+      
+      // Verteile die Positionen 1, 2, 3 (links, mitte, rechts)
+      return (index % 3) + 1;
     },
     
     getSevenCardPosition(card) {
@@ -237,7 +249,7 @@ export default {
     
     isPositionOccupied(position) {
       return this.cards.some(card => {
-        const cardPos = this.getBoardCardPosition(card);
+        const cardPos = card.position || this.getBoardCardPosition(card);
         return cardPos.row === position.row && cardPos.col === position.col;
       });
     },
@@ -309,6 +321,7 @@ export default {
   transform: rotate(-30deg);
   white-space: nowrap;
   pointer-events: none;
+  font-weight: bold;
 }
 
 .table-marking.left {
@@ -331,6 +344,11 @@ export default {
   justify-content: space-between;
   padding: 10px;
   z-index: 10;
+  pointer-events: none;
+}
+
+.opponents-container > * {
+  pointer-events: auto;
 }
 
 /* Spielfeld in der Mitte */
@@ -341,6 +359,7 @@ export default {
   transform: translate(-50%, -50%);
   width: 80%;
   height: 60%;
+  max-width: 1200px;
 }
 
 .seven-cards, .board-cards {
@@ -351,21 +370,18 @@ export default {
   height: 100%;
 }
 
-/* Aktionsbuttons */
+/* Aktionsbuttons - am linken Rand */
 .game-actions {
   position: absolute;
   bottom: 140px;
-  left: 0;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  padding: 0 30px;
+  left: 30px;
   z-index: 10;
+  display: block;
 }
 
 .btn-action {
-  padding: 10px 20px;
-  border-radius: 20px;
+  padding: 10px 25px;
+  border-radius: 25px;
   border: none;
   background-color: white;
   color: #1b7e44;
@@ -375,7 +391,11 @@ export default {
 }
 
 .btn-action:hover:not(:disabled) {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+}
+
+.btn-action:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .btn-action:disabled {
@@ -421,19 +441,33 @@ export default {
   text-align: center;
 }
 
+.status-modal h2 {
+  color: #1b7e44;
+  margin-bottom: 20px;
+}
+
 .winners-list {
   text-align: left;
   margin: 20px 0;
+}
+
+.winners-list ol {
+  padding-left: 40px;
+}
+
+.winners-list li {
+  margin-bottom: 5px;
 }
 
 .btn-new-game {
   background-color: #28a745;
   color: white;
   border: none;
-  padding: 10px 20px;
+  padding: 12px 25px;
   border-radius: 5px;
   font-weight: bold;
   cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 .btn-new-game:hover {
@@ -443,7 +477,7 @@ export default {
 /* Responsives Design */
 @media (max-width: 768px) {
   .game-board {
-    width: 90%;
+    width: 95%;
     height: 50%;
   }
   
@@ -453,6 +487,27 @@ export default {
   
   .game-actions {
     bottom: 120px;
+    left: 20px;
+  }
+  
+  .table-marking {
+    font-size: 80px;
+  }
+}
+
+@media (max-width: 480px) {
+  .game-actions {
+    bottom: 100px;
+    left: 15px;
+  }
+  
+  .btn-action {
+    padding: 8px 20px;
+    font-size: 14px;
+  }
+  
+  .table-marking {
+    font-size: 60px;
   }
 }
 </style>

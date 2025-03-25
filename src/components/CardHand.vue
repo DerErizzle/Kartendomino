@@ -5,6 +5,8 @@
       :key="card.id" 
       class="card-wrapper"
       :style="getCardStyle(index)"
+      @mouseenter="hoveredIndex = index"
+      @mouseleave="hoveredIndex = -1"
     >
       <Card
         :card="card"
@@ -60,7 +62,8 @@ export default {
     },
     
     cardWidth() {
-      return 90;
+      // Karten bei vielen Karten etwas kleiner machen
+      return this.cards.length > 15 ? 80 : 90;
     },
     
     handWidth() {
@@ -71,7 +74,7 @@ export default {
     handStyle() {
       return {
         width: `${this.handWidth}px`,
-        height: `${this.cardWidth * 1.6}px`
+        height: `${this.cardWidth * 1.8}px`
       };
     },
     
@@ -81,13 +84,16 @@ export default {
       const totalCardWidth = this.cardWidth * this.cards.length;
       const availableWidth = Math.min(this.maxWidth, window.innerWidth - 40);
       
-      // Selbst wenn genug Platz wäre, etwas Überlappung gewünscht
-      if (totalCardWidth <= availableWidth) {
-        return Math.max(this.cardWidth * 0.7, this.cardWidth - 20);
+      // Mehr Abstand zwischen den Karten
+      if (this.cards.length <= 8) {
+        // Bei wenigen Karten mehr Abstand
+        return Math.min(this.cardWidth * 1.2, availableWidth / (this.cards.length));
+      } else if (this.cards.length <= 13) {
+        // Bei mittlerer Anzahl
+        return Math.min(this.cardWidth * 0.9, availableWidth / (this.cards.length));
       } else {
-        // Stärkere Überlappung bei vielen Karten
-        const maxSpacing = availableWidth / (this.cards.length - 1);
-        return Math.min(this.cardWidth * 0.6, maxSpacing);
+        // Bei vielen Karten etwas mehr Überlappung, aber immer noch genug Abstand
+        return Math.min(this.cardWidth * 0.7, availableWidth / (this.cards.length + 2));
       }
     }
   },
@@ -100,12 +106,15 @@ export default {
     },
     
     getCardStyle(index) {
-      return {
+      const isHovered = this.hoveredIndex === index;
+      const baseStyle = {
         position: 'absolute',
         left: `${index * this.cardSpacing}px`,
-        transition: 'transform 0.2s ease',
-        zIndex: index
+        transition: 'all 0.2s ease',
+        zIndex: isHovered ? 100 : index
       };
+      
+      return baseStyle;
     },
     
     isCardPlayable(card) {
@@ -126,15 +135,30 @@ export default {
 .card-hand {
   position: relative;
   margin: 0 auto;
+  height: 160px;
+  perspective: 1000px;
 }
 
 .card-wrapper {
   position: absolute;
-  transition: transform 0.2s ease;
+  transition: all 0.2s ease;
+  transform-style: preserve-3d;
 }
 
 .card-wrapper:hover {
-  transform: translateY(-20px);
   z-index: 100 !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .card-hand {
+    height: 140px;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-hand {
+    height: 120px;
+  }
 }
 </style>
