@@ -1,5 +1,6 @@
 import { createStore } from 'vuex'
 import { socket } from '../services/socketService'
+import { findPlayableCards, findPositionForCard } from '../utils/cardUtils'
 
 export default createStore({
   state: {
@@ -11,8 +12,9 @@ export default createStore({
     currentPlayer: null,
     cards: [], // Karten auf dem Board
     hand: [], // Karten in der Hand des Spielers
+    handSizes: {}, // Anzahl der Karten pro Spieler
     passCounts: {}, // Anzahl der Pässe pro Spieler
-    playerPositions: {}, // Positionen für jeden Spieler (1, 2, 3, 4)
+    playerPositions: {}, // Positionen für jeden Spieler (1, 2, 3)
     winners: [], // Gewinner in der Reihenfolge
     gameOver: false
   },
@@ -21,40 +23,20 @@ export default createStore({
       if (!state.gameStarted || state.currentPlayer !== state.username) {
         return [];
       }
-
-      return state.hand.filter(card => {
-        // Prüfen, ob die Karte auf dem Board spielbar ist
-        // Eine Karte ist spielbar, wenn sie die gleiche Farbe hat und der Wert
-        // um 1 höher oder niedriger als eine der bereits gelegten Karten ist
-        return state.cards.some(boardCard => {
-          // Gleiche Farbe (gleiche Reihe) und Wert ist um 1 höher oder niedriger
-          const sameSuit = boardCard.suit === card.suit;
-          const cardValue = parseInt(card.value);
-          const boardValue = parseInt(boardCard.value);
-          const valueAbove = boardValue === cardValue + 1;
-          const valueBelow = boardValue === cardValue - 1;
-
-          // Prüfen, ob die Position neben der Karte frei ist
-          const canPlaceNextTo = !state.cards.some(c => {
-            if (valueAbove) {
-              return c.position.row === boardCard.position.row &&
-                c.position.col === boardCard.position.col - 1;
-            } else if (valueBelow) {
-              return c.position.row === boardCard.position.row &&
-                c.position.col === boardCard.position.col + 1;
-            }
-            return false;
-          });
-
-          return sameSuit && (valueAbove || valueBelow) && canPlaceNextTo;
-        });
-      });
+      
+      return findPlayableCards(state.hand, state.cards);
     },
+    
     remainingPasses: (state) => {
       return 3 - (state.passCounts[state.username] || 0);
     },
+    
     myPosition: (state) => {
       return state.playerPositions[state.username] || 0;
+    },
+    
+    opponentPositions: (state) => {
+      return state.playerPositions;
     }
   },
   mutations: {
@@ -62,50 +44,76 @@ export default createStore({
       state.username = username;
       localStorage.setItem('username', username);
     },
+    
     setRoomId(state, roomId) {
       state.roomId = roomId;
     },
+    
     setIsHost(state, isHost) {
       state.isHost = isHost;
     },
+    
     setPlayers(state, players) {
       state.players = players;
+      
+      // Prüfen, ob der aktuelle Spieler der Host ist
+      const currentPlayer = players.find(p => p.username === state.username);
+      if (currentPlayer) {
+        state.isHost = currentPlayer.isHost;
+      }
     },
+    
     setGameStarted(state, gameStarted) {
       state.gameStarted = gameStarted;
     },
+    
     setCurrentPlayer(state, player) {
       state.currentPlayer = player;
     },
+    
     setCards(state, cards) {
       state.cards = cards;
     },
+    
     setHand(state, hand) {
       state.hand = hand;
     },
+    
+    setHandSizes(state, handSizes) {
+      state.handSizes = handSizes;
+    },
+    
     setPassCounts(state, passCounts) {
       state.passCounts = passCounts;
     },
+    
     incrementPassCount(state, player) {
       if (!state.passCounts[player]) {
         state.passCounts[player] = 0;
       }
       state.passCounts[player]++;
     },
+    
     setPlayerPositions(state, positions) {
       state.playerPositions = positions;
     },
+    
     addWinner(state, player) {
-      state.winners.push(player);
+      if (!state.winners.includes(player)) {
+        state.winners.push(player);
+      }
     },
+    
     setGameOver(state, gameOver) {
       state.gameOver = gameOver;
     },
+    
     resetGame(state) {
       state.gameStarted = false;
       state.currentPlayer = null;
       state.cards = [];
       state.hand = [];
+      state.handSizes = {};
       state.passCounts = {};
       state.winners = [];
       state.gameOver = false;
@@ -114,12 +122,12 @@ export default createStore({
   actions: {
     createRoom({ commit }, username) {
       commit('setUsername', username);
-      commit('setIsHost', true);
-
+      
       return new Promise((resolve, reject) => {
         socket.emit('createRoom', { username }, (response) => {
           if (response && response.roomId) {
             commit('setRoomId', response.roomId);
+            commit('setIsHost', true);
             resolve(response.roomId);
           } else if (response && response.error) {
             reject(response.error);
@@ -129,11 +137,11 @@ export default createStore({
         });
       });
     },
+    
     joinRoom({ commit }, { username, roomId }) {
       commit('setUsername', username);
-      commit('setIsHost', false);
       commit('setRoomId', roomId);
-
+      
       return new Promise((resolve, reject) => {
         socket.emit('joinRoom', { username, roomId }, (response) => {
           if (response && response.error) {
@@ -144,9 +152,11 @@ export default createStore({
         });
       });
     },
+    
     startGame({ state }) {
       socket.emit('startGame', { roomId: state.roomId });
     },
+    
     playCard({ state }, { card, position }) {
       socket.emit('playCard', {
         roomId: state.roomId,
@@ -154,13 +164,16 @@ export default createStore({
         position
       });
     },
+    
     pass({ state, commit }) {
       socket.emit('pass', { roomId: state.roomId });
       commit('incrementPassCount', state.username);
     },
+    
     forfeit({ state }) {
       socket.emit('forfeit', { roomId: state.roomId });
     },
+    
     leaveRoom({ commit, state }) {
       socket.emit('leaveRoom', { roomId: state.roomId });
       commit('resetGame');

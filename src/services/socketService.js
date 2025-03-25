@@ -6,6 +6,7 @@ const baseURL = process.env.NODE_ENV === 'production'
   ? 'https://erizzle.de'
   : window.location.origin;
 
+// Socket-Instance erstellen
 export const socket = io(baseURL, {
   path: '/socket.io',
   autoConnect: true,
@@ -18,6 +19,22 @@ export const socket = io(baseURL, {
 // Socket Event Listeners
 socket.on('connect', () => {
   console.log('Connected to server');
+  
+  // Prüfe, ob eine Session wiederhergestellt werden muss
+  const savedSession = localStorage.getItem('gameSession');
+  if (savedSession) {
+    try {
+      const session = JSON.parse(savedSession);
+      const currentTime = new Date().getTime();
+      
+      // Prüfe, ob die Session nicht älter als 2 Stunden ist
+      if (session.timestamp && (currentTime - session.timestamp < 7200000)) {
+        console.log('Attempting to reconnect to previous session...');
+      }
+    } catch (error) {
+      console.error('Error parsing saved session:', error);
+    }
+  }
 });
 
 socket.on('connect_error', (error) => {
@@ -36,17 +53,21 @@ socket.on('playersUpdate', ({ players }) => {
   store.commit('setPlayers', players);
 });
 
-socket.on('gameStarted', ({ currentPlayer, hand, cards, playerPositions }) => {
+socket.on('gameStarted', ({ currentPlayer, hand, cards, playerPositions, handSizes }) => {
   store.commit('setGameStarted', true);
   store.commit('setCurrentPlayer', currentPlayer);
   store.commit('setHand', hand);
   store.commit('setCards', cards);
   store.commit('setPlayerPositions', playerPositions);
+  store.commit('setHandSizes', handSizes);
 });
 
-socket.on('turnUpdate', ({ currentPlayer, cards }) => {
+socket.on('turnUpdate', ({ currentPlayer, cards, handSizes }) => {
   store.commit('setCurrentPlayer', currentPlayer);
   store.commit('setCards', cards);
+  if (handSizes) {
+    store.commit('setHandSizes', handSizes);
+  }
 });
 
 socket.on('handUpdate', ({ hand }) => {
@@ -57,10 +78,17 @@ socket.on('passUpdate', ({ player, passCounts }) => {
   store.commit('setPassCounts', passCounts);
 });
 
-socket.on('playerForfeit', ({ player, cards, passCounts }) => {
+socket.on('playerForfeit', ({ player, cards, passCounts, handSizes }) => {
   store.commit('setCards', cards);
   store.commit('setPassCounts', passCounts);
+  if (handSizes) {
+    store.commit('setHandSizes', handSizes);
+  }
   store.commit('addWinner', player);
+});
+
+socket.on('playerDisconnected', ({ username }) => {
+  console.log(`Player ${username} disconnected`);
 });
 
 socket.on('gameOver', ({ winners }) => {
@@ -75,6 +103,4 @@ socket.on('error', ({ message }) => {
   alert(message);
 });
 
-export default {
-  socket
-};
+export default socket;

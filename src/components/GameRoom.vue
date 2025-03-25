@@ -36,7 +36,7 @@
         @click="startGame" 
         :disabled="players.length < 1"
       >
-        Spiel starten ({{ players.length < 4 ? 'mit Bots' : '' }})
+        Spiel starten {{ players.length < 4 ? '(mit Bots)' : '' }}
       </button>
       <button class="btn-leave" @click="leaveRoom">Raum verlassen</button>
     </div>
@@ -44,8 +44,6 @@
 </template>
 
 <script>
-import { mapState, mapActions } from 'vuex';
-
 export default {
   name: 'GameRoom',
   props: {
@@ -55,7 +53,15 @@ export default {
     }
   },
   computed: {
-    ...mapState(['players', 'isHost', 'gameStarted']),
+    players() {
+      return this.$store.state.players;
+    },
+    isHost() {
+      return this.$store.state.isHost;
+    },
+    gameStarted() {
+      return this.$store.state.gameStarted;
+    }
   },
   watch: {
     gameStarted(newVal) {
@@ -65,7 +71,14 @@ export default {
     }
   },
   methods: {
-    ...mapActions(['startGame', 'leaveRoom']),
+    startGame() {
+      this.$store.dispatch('startGame');
+    },
+    
+    leaveRoom() {
+      this.$store.dispatch('leaveRoom');
+      this.$router.push('/');
+    },
     
     getInitials(name) {
       return name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -78,6 +91,7 @@ export default {
     }
   },
   beforeRouteLeave(to, from, next) {
+    // Raum nur verlassen, wenn nicht zum Spiel gewechselt wird
     if (to.name !== 'Game') {
       this.leaveRoom();
     }
@@ -95,11 +109,16 @@ export default {
   padding: 20px;
   height: 100vh;
   box-sizing: border-box;
+  color: #333;
 }
 
 .room-header {
   text-align: center;
   margin-bottom: 30px;
+}
+
+h1 {
+  color: #1b7e44;
 }
 
 .room-info {
@@ -123,6 +142,10 @@ export default {
   cursor: pointer;
 }
 
+.btn-copy:hover {
+  background-color: #5a6268;
+}
+
 .players-list {
   flex: 1;
   background-color: white;
@@ -131,6 +154,11 @@ export default {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   margin-bottom: 20px;
   overflow-y: auto;
+}
+
+h2 {
+  color: #1b7e44;
+  margin-bottom: 20px;
 }
 
 .players {

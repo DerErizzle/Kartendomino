@@ -46,8 +46,6 @@
 </template>
 
 <script>
-import { mapActions } from 'vuex';
-
 export default {
   name: 'Login',
   data() {
@@ -64,8 +62,6 @@ export default {
     }
   },
   methods: {
-    ...mapActions(['createRoom', 'joinRoom']),
-    
     createRoom() {
       this.$store.dispatch('createRoom', this.username).then((roomId) => {
         if (roomId) {
@@ -102,7 +98,7 @@ export default {
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background-color: #1b7e44; /* Grüner Hintergrund wie beim Spieltisch */
+  background-color: #1b7e44;
 }
 
 .login-box {
@@ -128,6 +124,7 @@ label {
   display: block;
   margin-bottom: 5px;
   font-weight: bold;
+  color: #333;
 }
 
 input {
@@ -169,6 +166,16 @@ input {
 
 .option-buttons button {
   width: 48%;
+  padding: 10px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.option-buttons button:hover {
+  background-color: #0056b3;
 }
 
 .join-form {
@@ -184,7 +191,23 @@ input {
 }
 
 .join-form button {
-  flex: 1;
-  min-width: 0;
+  padding: 10px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.join-form button:hover {
+  background-color: #0056b3;
+}
+
+.join-form button.secondary {
+  background-color: #6c757d;
+}
+
+.join-form button.secondary:hover {
+  background-color: #5a6268;
 }
 </style>

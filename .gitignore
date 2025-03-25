@@ -5,3 +5,4 @@ readme.md
 .vscode
 dist
 *.png
+package-lock.json

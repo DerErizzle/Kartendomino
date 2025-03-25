@@ -18,14 +18,18 @@ module.exports = {
       }
     },
     historyApiFallback: true, // Für die Vue Router History-Mode
-    hot: true,
     client: {
       overlay: true, // Fehler im Browser anzeigen
     }
   },
 
-  // Konfiguration für die Produktionsversion
+  // Alias-Pfade
   configureWebpack: {
+    resolve: {
+      alias: {
+        '@': require('path').resolve(__dirname, 'src')
+      }
+    },
     optimization: {
       splitChunks: {
         chunks: 'all'

@@ -1,22 +1,23 @@
 <template>
   <div class="card-hand" :style="handStyle">
-    <Card
-      v-for="(card, index) in sortedCards"
-      :key="card.id"
-      :card="card"
-      :playable="isCardPlayable(card)"
-      :inHand="true"
-      :offset="getCardOffset(index)"
-      @card-click="onCardClick"
-      @card-hover="(isHovered) => updateHoverState(index, isHovered)"
-    />
+    <div 
+      v-for="(card, index) in sortedCards" 
+      :key="card.id" 
+      class="card-wrapper"
+      :style="getCardStyle(index)"
+    >
+      <Card
+        :card="card"
+        :playable="isCardPlayable(card)"
+        :inHand="true"
+        @card-click="onCardClick"
+      />
+    </div>
   </div>
 </template>
 
 <script>
 import Card from './Card.vue';
-import { sortHand } from '../utils/cardUtils';
-import { mapGetters } from 'vuex';
 
 export default {
   name: 'CardHand',
@@ -35,6 +36,10 @@ export default {
     isMyTurn: {
       type: Boolean,
       default: false
+    },
+    playableCards: {
+      type: Array,
+      default: () => []
     }
   },
   data() {
@@ -43,44 +48,64 @@ export default {
     };
   },
   computed: {
-    ...mapGetters(['playableCards']),
-    
     sortedCards() {
-      return sortHand(this.cards);
+      // Sortieren nach Farbe und dann nach Wert
+      return [...this.cards].sort((a, b) => {
+        const suits = ['c', 'd', 'h', 's'];
+        if (a.suit !== b.suit) {
+          return suits.indexOf(a.suit) - suits.indexOf(b.suit);
+        }
+        return parseInt(a.value) - parseInt(b.value);
+      });
     },
     
     cardWidth() {
-      return 100;
-    },
-    
-    cardOverlap() {
-      if (this.cards.length <= 1) return 0;
-      
-      const totalCardsWidth = this.cardWidth * this.cards.length;
-      const availableWidth = Math.min(this.maxWidth, window.innerWidth - 40);
-      
-      if (totalCardsWidth <= availableWidth) {
-        return Math.max(0, Math.min(this.cardWidth * 0.5, (this.cardWidth * 0.7) - (availableWidth - totalCardsWidth) / (this.cards.length - 1)));
-      } else {
-        return Math.min(this.cardWidth * 0.7, (totalCardsWidth - availableWidth) / (this.cards.length - 1));
-      }
+      return 90;
     },
     
     handWidth() {
-      if (this.cards.length === 0) return 0;
-      return this.cardWidth + (this.cards.length - 1) * (this.cardWidth - this.cardOverlap);
+      const totalWidth = this.calculateTotalWidth();
+      return Math.min(totalWidth, this.maxWidth);
     },
     
     handStyle() {
       return {
         width: `${this.handWidth}px`,
-        height: `${this.cardWidth * 1.54 + 20}px` // 20px extra for hover effect
+        height: `${this.cardWidth * 1.6}px`
       };
+    },
+    
+    cardSpacing() {
+      if (this.cards.length <= 1) return 0;
+      
+      const totalCardWidth = this.cardWidth * this.cards.length;
+      const availableWidth = Math.min(this.maxWidth, window.innerWidth - 40);
+      
+      // Selbst wenn genug Platz wäre, etwas Überlappung gewünscht
+      if (totalCardWidth <= availableWidth) {
+        return Math.max(this.cardWidth * 0.7, this.cardWidth - 20);
+      } else {
+        // Stärkere Überlappung bei vielen Karten
+        const maxSpacing = availableWidth / (this.cards.length - 1);
+        return Math.min(this.cardWidth * 0.6, maxSpacing);
+      }
     }
   },
   methods: {
-    getCardOffset(index) {
-      return index * (this.cardWidth - this.cardOverlap);
+    calculateTotalWidth() {
+      if (this.cards.length <= 0) return 0;
+      
+      // Berechnen der Gesamtbreite unter Berücksichtigung der Überlappung
+      return this.cardWidth + (this.cards.length - 1) * this.cardSpacing;
+    },
+    
+    getCardStyle(index) {
+      return {
+        position: 'absolute',
+        left: `${index * this.cardSpacing}px`,
+        transition: 'transform 0.2s ease',
+        zIndex: index
+      };
     },
     
     isCardPlayable(card) {
@@ -92,10 +117,6 @@ export default {
       if (this.isCardPlayable(card)) {
         this.$emit('play-card', card);
       }
-    },
-    
-    updateHoverState(index, isHovered) {
-      this.hoveredIndex = isHovered ? index : -1;
     }
   }
 }
@@ -105,5 +126,15 @@ export default {
 .card-hand {
   position: relative;
   margin: 0 auto;
+}
+
+.card-wrapper {
+  position: absolute;
+  transition: transform 0.2s ease;
+}
+
+.card-wrapper:hover {
+  transform: translateY(-20px);
+  z-index: 100 !important;
 }
 </style>

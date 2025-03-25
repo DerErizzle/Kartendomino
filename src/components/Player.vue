@@ -1,5 +1,5 @@
 <template>
-  <div class="player-container" :class="{ 'current-turn': isCurrentPlayer }">
+  <div class="player-container" :class="{ 'current-turn': isCurrentPlayer, 'position-1': position === 1, 'position-2': position === 2, 'position-3': position === 3 }">
     <div class="player-info">
       <div class="avatar">
         <img v-if="avatar" :src="avatar" alt="Avatar" />
@@ -14,13 +14,15 @@
     
     <div class="player-cards" v-if="showCards && cardCount > 0">
       <div 
-        v-for="i in cardCount" 
+        v-for="i in Math.min(cardCount, 8)" 
         :key="i" 
         class="opponent-card"
         :style="getCardStyle(i-1)"
       >
-        <Card :isFaceDown="true" :clickable="false" />
+        <Card :isFaceDown="true" :clickable="false" :scale="0.8" />
       </div>
+      
+      <div class="card-count" v-if="cardCount > 8">+{{ cardCount - 8 }}</div>
     </div>
   </div>
 </template>
@@ -54,6 +56,10 @@ export default {
       type: Boolean,
       default: false
     },
+    position: {
+      type: Number,
+      default: 1
+    },
     showCards: {
       type: Boolean,
       default: true
@@ -65,20 +71,12 @@ export default {
     },
     
     getCardStyle(index) {
-      const maxVisibleCards = 8; // Maximum number of visible cards
-      const visibleCardCount = Math.min(this.cardCount, maxVisibleCards);
-      const overlap = 20; // Pixel overlap between cards
+      const spacing = 20; // Überlappung zwischen Karten
       
-      // If there are many cards, we need to adjust so they all fit
-      const adjustedIndex = this.cardCount > maxVisibleCards 
-        ? index * (maxVisibleCards / this.cardCount) 
-        : index;
-        
       return {
         position: 'absolute',
-        left: `${adjustedIndex * overlap}px`,
-        zIndex: index,
-        transform: this.isCurrentPlayer ? 'translateY(-5px)' : 'none'
+        left: `${index * spacing}px`,
+        zIndex: index
       };
     }
   }
@@ -95,13 +93,12 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 200px;
+  min-width: 180px;
   position: relative;
 }
 
 .current-turn {
   background-color: rgba(255, 255, 204, 0.3);
-  box-shadow: 0 0 10px rgba(255, 255, 0, 0.5);
 }
 
 .player-info {
@@ -152,12 +149,44 @@ export default {
 
 .player-cards {
   position: relative;
-  height: 70px;
+  height: 80px;
   margin-top: 10px;
-  width: 200px;
+  width: 180px;
 }
 
 .opponent-card {
   transition: transform 0.2s ease;
+}
+
+.card-count {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* Positionsabhängige Stile */
+.position-1 {
+  position: absolute;
+  left: 20px;
+  top: 20px;
+}
+
+.position-2 {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 20px;
+}
+
+.position-3 {
+  position: absolute;
+  right: 20px;
+  top: 20px;
 }
 </style>

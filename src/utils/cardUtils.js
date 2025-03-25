@@ -1,11 +1,11 @@
-// Kartenfarben/Anzeigereihenfolge (c=clubs/♣, d=diamonds/♦, h=hearts/♥, s=spades/♠)
+// Farbfolge und Anzeigereihenfolge (c=clubs/♣, d=diamonds/♦, h=hearts/♥, s=spades/♠)
 export const SUITS = ['c', 'd', 'h', 's'];
 export const VALUES = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13'];
 export const SUIT_NAMES = {
-  'c': 'clubs',
-  'd': 'diamonds',
-  'h': 'hearts',
-  's': 'spades'
+  'c': 'Clubs',
+  'd': 'Diamonds',
+  'h': 'Hearts',
+  's': 'Spades'
 };
 
 // Erstellt ein komplettes Kartendeck
@@ -46,20 +46,22 @@ export function dealCards(deck, numPlayers) {
   const sevenCards = deck.filter(card => card.value === '07');
   const remainingDeck = deck.filter(card => card.value !== '07');
   
-  // Die Siebener in die Mitte legen, vertikal angeordnet
+  // Die Siebener in die Mitte legen, untereinander angeordnet
   for (let i = 0; i < sevenCards.length; i++) {
     const card = sevenCards[i];
+    const suitIndex = SUITS.indexOf(card.suit);
+    
     startingCards.push({
       ...card,
-      position: getPositionFor7(card.suit)
+      position: {
+        row: suitIndex, // Eine Reihe pro Farbe
+        col: 7 // Spalte 7 für die 7er (in der horizontalen Mitte)
+      }
     });
   }
   
   // Rest der Karten gleichmäßig auf die Spieler verteilen
-  // Jedem Spieler genau 12 Karten geben
-  const cardsPerPlayer = 12;
-  
-  // Mische die verbleibenden Karten nochmals
+  const cardsPerPlayer = Math.floor(remainingDeck.length / numPlayers);
   const shuffledRemaining = shuffleDeck(remainingDeck);
   
   for (let i = 0; i < numPlayers; i++) {
@@ -72,55 +74,33 @@ export function dealCards(deck, numPlayers) {
   };
 }
 
-// Position für die 7er Karten in der Mitte bestimmen
-function getPositionFor7(suit) {
-  const suitIndex = SUITS.indexOf(suit);
-  
-  // Die 7er werden vertikal angeordnet, eine über der anderen
-  return {
-    row: suitIndex,
-    col: 0 // Zentriert (wird später vom Layout angepasst)
-  };
-}
-
 // Prüft, ob eine Karte neben eine andere gelegt werden kann
-export function canPlayNextTo(card, targetCard) {
+export function canPlayNextTo(card, boardCard) {
   // Gleiche Farbe und benachbarter Wert
-  if (card.suit === targetCard.suit) {
+  if (card.suit === boardCard.suit) {
     const cardValue = parseInt(card.value);
-    const targetValue = parseInt(targetCard.value);
+    const boardValue = parseInt(boardCard.value);
     
-    return Math.abs(cardValue - targetValue) === 1;
+    return Math.abs(cardValue - boardValue) === 1;
   }
   
   return false;
 }
 
-// Berechnet die Position für eine Karte auf dem Spielfeld
-export function getCardPosition(card, targetCard) {
-  const cardValue = parseInt(card.value);
-  const targetValue = parseInt(targetCard.value);
-  
+// Berechnet die Position für eine Karte (links oder rechts von einer Karte auf dem Board)
+export function getCardPosition(card, boardCard) {
   // Nur Karten der gleichen Farbe können nebeneinander gelegt werden
-  if (card.suit === targetCard.suit) {
-    // Der Wert bestimmt die Spalte - niedrigere Werte links, höhere rechts
-    const suitIndex = SUITS.indexOf(card.suit);
+  if (card.suit === boardCard.suit) {
+    const cardValue = parseInt(card.value);
+    const boardValue = parseInt(boardCard.value);
     
-    // Wenn die 7 das Ziel ist, platzieren wir basierend auf unserem Wert
-    if (targetValue === 7) {
+    // Karten werden in einer Reihe platziert, der Wert bestimmt die Spalte
+    if (Math.abs(cardValue - boardValue) === 1) {
       return {
-        row: suitIndex,
-        col: cardValue < 7 ? -1 : 1 // Links oder rechts der 7
+        row: SUITS.indexOf(card.suit),
+        col: cardValue // Der Wert der Karte bestimmt direkt die Spalte
       };
     }
-    
-    // Ansonsten basierend darauf, ob der Wert höher oder niedriger ist
-    const direction = cardValue > targetValue ? 1 : -1;
-    
-    return {
-      row: suitIndex,
-      col: targetCard.position.col + direction
-    };
   }
   
   return null;
@@ -128,9 +108,35 @@ export function getCardPosition(card, targetCard) {
 
 // Prüft, ob eine bestimmte Position bereits belegt ist
 export function isPositionOccupied(cards, position) {
-  return cards.some(card => 
-    card.position.row === position.row && card.position.col === position.col
-  );
+  return cards.some(card => {
+    // Position berechnen
+    const cardPos = {
+      row: SUITS.indexOf(card.suit),
+      col: parseInt(card.value) === 7 ? 7 : parseInt(card.value)
+    };
+    
+    return cardPos.row === position.row && cardPos.col === position.col;
+  });
+}
+
+// Findet alle spielbaren Karten für eine Hand
+export function findPlayableCards(hand, boardCards) {
+  return hand.filter(card => {
+    // Eine Karte ist spielbar, wenn sie neben eine Karte auf dem Brett gelegt werden kann
+    // und die Position noch nicht belegt ist
+    return boardCards.some(boardCard => {
+      // Prüfen, ob die Karte neben die Board-Karte gelegt werden kann
+      if (canPlayNextTo(card, boardCard)) {
+        // Position berechnen
+        const position = getCardPosition(card, boardCard);
+        
+        // Prüfen, ob die Position frei ist
+        return position && !isPositionOccupied(boardCards, position);
+      }
+      
+      return false;
+    });
+  });
 }
 
 // Sortiert die Karten auf der Hand - zuerst nach Farbe, dann nach Wert
@@ -146,20 +152,13 @@ export function sortHand(hand) {
   });
 }
 
-// Findet spielbare Karten für eine Hand
-export function findPlayableCards(hand, boardCards) {
-  return hand.filter(card => {
-    return boardCards.some(boardCard => canPlayNextTo(card, boardCard));
-  });
-}
-
-// Berechnet die Position für eine spielbare Karte
+// Findet eine Position für eine Karte auf dem Board
 export function findPositionForCard(card, boardCards) {
   for (const boardCard of boardCards) {
     if (canPlayNextTo(card, boardCard)) {
       const position = getCardPosition(card, boardCard);
       
-      // Prüfen, ob die Position schon belegt ist
+      // Prüfen, ob die Position frei ist
       if (position && !isPositionOccupied(boardCards, position)) {
         return position;
       }

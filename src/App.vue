@@ -6,149 +6,91 @@
 
 <script>
 export default {
-  name: 'App'
+  name: 'App',
+  created() {
+    // Prüfe, ob ein Spiel im Gange war
+    const savedSession = localStorage.getItem('gameSession');
+    
+    if (savedSession) {
+      try {
+        const session = JSON.parse(savedSession);
+        const currentTime = new Date().getTime();
+        
+        // Prüfe, ob die Session nicht älter als 2 Stunden ist
+        if (session.timestamp && (currentTime - session.timestamp < 7200000)) {
+          // Versuche, zum vorherigen Spiel zurückzukehren
+          const room = session.roomId;
+          const username = session.username;
+          
+          if (room && username) {
+            this.$store.commit('setUsername', username);
+            this.$store.commit('setRoomId', room);
+            
+            // Prüfe, ob das Spiel bereits gestartet war
+            if (session.gameStarted) {
+              this.$router.push({ name: 'Game', params: { roomId: room } });
+            } else {
+              this.$router.push({ name: 'GameRoom', params: { roomId: room } });
+            }
+            
+            // Versuche, dem Raum beizutreten
+            this.$store.dispatch('reconnectToRoom', {
+              username,
+              roomId: room
+            }).catch(error => {
+              console.error('Reconnection failed:', error);
+            });
+          }
+        } else {
+          // Session ist abgelaufen, löschen
+          localStorage.removeItem('gameSession');
+        }
+      } catch (error) {
+        console.error('Fehler beim Wiederherstellen der Session:', error);
+        localStorage.removeItem('gameSession');
+      }
+    }
+  }
 }
 </script>
 
 <style>
-body {
+/* Globale Stile */
+* {
   margin: 0;
   padding: 0;
-  font-family: Arial, sans-serif;
-  background-color: #f0f0f0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Roboto', Arial, sans-serif;
+  background-color: #f8f9fa;
+  color: #333;
+  line-height: 1.5;
   overflow: hidden;
 }
 
 #app {
   width: 100vw;
   height: 100vh;
-  display: flex;
-  flex-direction: column;
+  overflow: hidden;
 }
 
+/* Buttons allgemein */
 button {
   cursor: pointer;
-  padding: 8px 16px;
+  padding: 10px 20px;
   border: none;
   border-radius: 4px;
-  background-color: #28a745;
-  color: white;
-  font-size: 14px;
-  margin: 5px;
-  transition: background-color 0.2s;
-}
-
-button:hover {
-  background-color: #218838;
+  font-weight: 500;
+  transition: all 0.2s ease;
 }
 
 button:disabled {
-  background-color: #6c757d;
+  opacity: 0.65;
   cursor: not-allowed;
 }
 
-button.secondary {
-  background-color: #6c757d;
-}
-
-button.secondary:hover {
-  background-color: #5a6268;
-}
-
-button.danger {
-  background-color: #dc3545;
-}
-
-button.danger:hover {
-  background-color: #c82333;
-}
-
-input {
-  padding: 8px;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
-  margin: 5px;
-  font-size: 14px;
-}
-
-.card {
-  position: relative;
-  transition: transform 0.2s, filter 0.2s;
-}
-
-.card:hover {
-  transform: translateY(-10px);
-  z-index: 10;
-}
-
-.card.unplayable {
-  filter: brightness(70%);
-}
-
-.avatar {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background-color: #f8f9fa;
-  border: 2px solid #dee2e6;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.player-info {
-  display: flex;
-  align-items: center;
-  margin: 5px;
-}
-
-.player-name {
-  margin-left: 10px;
-  font-weight: bold;
-}
-
-.pass-count {
-  margin-left: 10px;
-  color: #6c757d;
-}
-
-.game-board {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  background-color: #1b7e44; /* Grüner Spieltischhintergrund */
-  overflow: hidden;
-}
-
-.center-cards {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.hand-container {
-  position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  justify-content: center;
-}
-
-.opponents-container {
-  position: absolute;
-  top: 10px;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: space-around;
-}
+/* Schriftart laden */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
 </style>
