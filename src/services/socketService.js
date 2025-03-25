@@ -1,27 +1,20 @@
-// Verbesserte Socket.io-Konfiguration für src/services/socketService.js
-
 import { io } from 'socket.io-client';
 import store from '../store';
 
 // Bestimme die richtige Basis-URL basierend auf der Umgebung
-const baseURL = process.env.NODE_ENV === 'production'
-  ? 'https://erizzle.de'
-  : window.location.origin;
+const baseURL = process.env.NODE_ENV === 'production' 
+  ? window.location.origin // Verwende die aktuelle Domain im Produktionsmodus
+  : 'http://localhost:3000'; // Explizite URL im Entwicklungsmodus
 
 // Socket-Instance mit verbesserten Einstellungen erstellen
 export const socket = io(baseURL, {
-  path: '/socket.io',
   autoConnect: true,
   reconnection: true,
-  reconnectionAttempts: Infinity, // Unbegrenzte Wiederverbindungsversuche
+  reconnectionAttempts: 10,
   reconnectionDelay: 1000,
-  reconnectionDelayMax: 5000, // Maximale Verzögerung zwischen Wiederverbindungsversuchen
-  timeout: 60000, // Längerer Timeout
-  pingTimeout: 30000, // Ping-Timeout auf 30 Sekunden erhöhen
-  pingInterval: 25000, // Ping-Intervall auf 25 Sekunden setzen
-  transports: ['websocket', 'polling'], // Beide Transportmethoden erlauben, mit Websocket als Präferenz
-  upgrade: true,
-  forceNew: false
+  reconnectionDelayMax: 5000,
+  timeout: 20000,
+  transports: ['websocket', 'polling'] // Versuche zuerst WebSocket, dann Polling
 });
 
 // Erweiterte Socket Event Listeners
@@ -49,17 +42,11 @@ socket.on('connect_error', (error) => {
   console.error('Connection error:', error);
 });
 
-socket.on('connect_timeout', () => {
-  console.error('Connection timeout');
-});
-
-// Erkennung und Behandlung von Verbindungsverlusten
 socket.on('disconnect', (reason) => {
   console.log(`Disconnected: ${reason}`);
   
-  // Wenn die Verbindung unerwartet getrennt wurde, versuche erneut zu verbinden
-  if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
-    console.log('Attempting to reconnect...');
+  if (reason === 'io server disconnect') {
+    // Der Server hat die Verbindung geschlossen
     socket.connect();
   }
 });
@@ -72,20 +59,11 @@ socket.on('reconnect_attempt', (attemptNumber) => {
   console.log(`Reconnect attempt: ${attemptNumber}`);
 });
 
-socket.on('reconnect_error', (error) => {
-  console.error('Reconnect error:', error);
-});
-
-socket.on('reconnect_failed', () => {
-  console.error('Reconnection failed after all attempts');
-  alert('Die Verbindung zum Server wurde unterbrochen. Bitte laden Sie die Seite neu.');
-});
-
 socket.on('error', (error) => {
   console.error('Socket error:', error);
 });
 
-// Bisherige Event-Handler (aus der Original-Datei)
+// Event-Handler
 socket.on('roomCreated', ({ roomId }) => {
   store.commit('setRoomId', roomId);
   console.log('Room created:', roomId);

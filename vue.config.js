@@ -10,17 +10,20 @@ module.exports = {
       '/socket.io': {
         target: 'http://localhost:3000',
         ws: true,
-        changeOrigin: true
+        changeOrigin: true,
+        logLevel: 'debug'
       },
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true
       }
     },
-    historyApiFallback: true, // Für die Vue Router History-Mode
+    historyApiFallback: true,
     client: {
-      overlay: true, // Fehler im Browser anzeigen
-    }
+      overlay: true,
+      webSocketURL: 'ws://localhost:8080/ws'
+    },
+    webSocketServer: 'ws'
   },
 
   // Alias-Pfade
@@ -33,15 +36,6 @@ module.exports = {
     optimization: {
       splitChunks: {
         chunks: 'all'
-      }
-    }
-  },
-
-  // CSS-Einstellungen
-  css: {
-    loaderOptions: {
-      css: {
-        // css-loader-Optionen
       }
     }
   }

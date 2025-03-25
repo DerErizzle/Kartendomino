@@ -26,19 +26,21 @@ export default {
             this.$store.commit('setUsername', username);
             this.$store.commit('setRoomId', room);
             
-            // Prüfe, ob das Spiel bereits gestartet war
-            if (session.gameStarted) {
-              this.$router.push({ name: 'Game', params: { roomId: room } });
-            } else {
-              this.$router.push({ name: 'GameRoom', params: { roomId: room } });
-            }
-            
             // Versuche, dem Raum beizutreten
             this.$store.dispatch('reconnectToRoom', {
               username,
               roomId: room
+            }).then(() => {
+              // Prüfe, ob das Spiel bereits gestartet war
+              if (session.gameStarted) {
+                this.$router.push({ name: 'Game', params: { roomId: room } });
+              } else {
+                this.$router.push({ name: 'GameRoom', params: { roomId: room } });
+              }
             }).catch(error => {
               console.error('Reconnection failed:', error);
+              // Bei Fehler zur Startseite navigieren
+              this.$router.push('/');
             });
           }
         } else {

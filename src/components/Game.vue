@@ -295,6 +295,12 @@ export default {
       this.$store.dispatch('reconnectToRoom', {
         username: this.username,
         roomId: this.roomId
+      }).then(() => {
+        console.log("Successfully reconnected to game room");
+      }).catch(error => {
+        console.error("Failed to reconnect to game room:", error);
+        // Bei Fehler zur Startseite navigieren
+        this.$router.push('/');
       });
     }
 

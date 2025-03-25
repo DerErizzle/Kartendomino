@@ -128,6 +128,16 @@ export default createStore({
           if (response && response.roomId) {
             commit('setRoomId', response.roomId);
             commit('setIsHost', true);
+            
+            // Session speichern
+            const gameSession = {
+              username,
+              roomId: response.roomId,
+              gameStarted: false,
+              timestamp: new Date().getTime()
+            };
+            localStorage.setItem('gameSession', JSON.stringify(gameSession));
+            
             resolve(response.roomId);
           } else if (response && response.error) {
             reject(response.error);
@@ -147,6 +157,38 @@ export default createStore({
           if (response && response.error) {
             reject(response.error);
           } else {
+            // Session speichern
+            const gameSession = {
+              username,
+              roomId,
+              gameStarted: false,
+              timestamp: new Date().getTime()
+            };
+            localStorage.setItem('gameSession', JSON.stringify(gameSession));
+            
+            resolve();
+          }
+        });
+      });
+    },
+    
+    reconnectToRoom({ commit, state }, { username, roomId }) {
+      commit('setUsername', username);
+      commit('setRoomId', roomId);
+      
+      return new Promise((resolve, reject) => {
+        socket.emit('reconnectToRoom', { username, roomId }, (response) => {
+          if (response && response.error) {
+            // Raum existiert nicht mehr oder anderer Fehler
+            console.error('Reconnection failed:', response.error);
+            
+            // Spielsession löschen
+            localStorage.removeItem('gameSession');
+            
+            // Fehler zurückgeben
+            reject(response.error);
+          } else {
+            // Erfolgreich wiederverbunden
             resolve();
           }
         });
@@ -174,10 +216,13 @@ export default createStore({
       socket.emit('forfeit', { roomId: state.roomId });
     },
     
-    leaveRoom({ commit, state }) {
-      socket.emit('leaveRoom', { roomId: state.roomId });
+    leaveRoom({ commit, state }, { roomId }) {
+      socket.emit('leaveRoom', { roomId: roomId || state.roomId });
       commit('resetGame');
       commit('setRoomId', null);
+      
+      // Session löschen
+      localStorage.removeItem('gameSession');
     }
   }
 })

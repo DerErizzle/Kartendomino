@@ -5,7 +5,14 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = socketIo(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000
+});
 
 // Statische Dateien aus dem dist-Verzeichnis servieren
 app.use(express.static(path.join(__dirname, '../dist')));
@@ -171,8 +178,16 @@ function getPlayerPositions(players, currentPlayerName) {
   return positions;
 }
 
+// Zählt die menschlichen Spieler im Raum
+function countHumanPlayers(room) {
+  if (!room || !room.players) return 0;
+  return room.players.filter(player => !player.isBot && !player.disconnected).length;
+}
+
 // Speichert die Spielräume
 const rooms = {};
+// Speichert Timeouts für Raumschließungen
+const roomCleanupTimeouts = {};
 
 // Socket.io Event-Handler
 io.on('connection', (socket) => {
@@ -238,6 +253,12 @@ io.on('connection', (socket) => {
       return socket.emit('error', { message: 'Raum ist voll.' });
     }
 
+    // Cleanup-Timeout abbrechen, falls vorhanden
+    if (roomCleanupTimeouts[roomId]) {
+      clearTimeout(roomCleanupTimeouts[roomId]);
+      delete roomCleanupTimeouts[roomId];
+    }
+
     // Spieler dem Raum hinzufügen
     rooms[roomId].players.push({
       id: socket.id,
@@ -263,6 +284,12 @@ io.on('connection', (socket) => {
     if (!rooms[roomId]) {
       if (callback) callback({ error: 'Raum existiert nicht mehr.' });
       return socket.emit('error', { message: 'Raum existiert nicht mehr.' });
+    }
+
+    // Cleanup-Timeout abbrechen, falls vorhanden
+    if (roomCleanupTimeouts[roomId]) {
+      clearTimeout(roomCleanupTimeouts[roomId]);
+      delete roomCleanupTimeouts[roomId];
     }
 
     // Prüfen, ob der Spieler im Raum war
@@ -295,6 +322,9 @@ io.on('connection', (socket) => {
     } else {
       // Spieler war bereits im Raum, ID aktualisieren
       rooms[roomId].players[existingPlayerIndex].id = socket.id;
+      
+      // Disconnected-Status entfernen
+      rooms[roomId].players[existingPlayerIndex].disconnected = false;
       
       // Socket dem Raum beitreten lassen
       socket.join(roomId);
@@ -346,7 +376,7 @@ io.on('connection', (socket) => {
     }
 
     // Bots hinzufügen, wenn weniger als 4 Spieler
-    const humanPlayersCount = room.players.length;
+    const humanPlayersCount = room.players.filter(p => !p.isBot).length;
     const botsCount = Math.max(0, 4 - humanPlayersCount);
 
     if (botsCount > 0) {
@@ -388,15 +418,6 @@ io.on('connection', (socket) => {
     // Passanzahl für alle Spieler auf 0 setzen
     room.players.forEach(player => {
       room.passCounts[player.username] = 0;
-    });
-
-    // Positionen der Spieler zuweisen (1-3 für Gegner, eigener Spieler hat keine spezifische Position)
-    const playerPositions = {};
-    room.players.forEach((player, index) => {
-      // Berechne Position (1-3) für die Gegner
-      if (index > 0 && index <= 3) {
-        playerPositions[player.username] = index;
-      }
     });
 
     // Spiel als gestartet markieren
@@ -648,17 +669,16 @@ io.on('connection', (socket) => {
 
   // Verbindung getrennt
   socket.on('disconnect', () => {
-    // Bei Verbindungsverlust nicht sofort aus dem Raum entfernen
-    // Stattdessen Status als "disconnected" markieren und auf Wiederverbindung warten
+    // Bei Verbindungsverlust alle Räume prüfen, in denen der Spieler ist
     for (const roomId in rooms) {
       const room = rooms[roomId];
       const playerIndex = room.players.findIndex(p => p.id === socket.id);
       
       if (playerIndex !== -1) {
-        // Nur den Socket aus dem Raum entfernen, aber Spieler beibehalten
+        // Socket aus dem Raum entfernen
         socket.leave(roomId);
         
-        // Markiere den Spieler als getrennt (für etwaige UI-Anpassungen)
+        // Markiere den Spieler als getrennt
         const player = room.players[playerIndex];
         player.disconnected = true;
         
@@ -667,20 +687,44 @@ io.on('connection', (socket) => {
           username: player.username
         });
         
-        // Nach 5 Minuten ohne Wiederverbindung den Spieler entfernen
-        setTimeout(() => {
-          // Prüfen, ob der Raum und der Spieler noch existieren
-          if (rooms[roomId] && rooms[roomId].players) {
-            const currentIndex = rooms[roomId].players.findIndex(p => 
-              p.username === player.username && p.disconnected
-            );
-            
-            if (currentIndex !== -1) {
-              // Spieler endgültig entfernen
-              leaveRoom({ id: rooms[roomId].players[currentIndex].id }, roomId);
-            }
+        // Prüfen, ob noch menschliche Spieler im Raum sind
+        const humanPlayersLeft = countHumanPlayers(room);
+        
+        // Wenn keine menschlichen Spieler mehr im Raum sind, starte einen Timeout
+        if (humanPlayersLeft === 0) {
+          console.log(`Keine menschlichen Spieler mehr in Raum ${roomId}, starte 3-Sekunden-Countdown zur Löschung`);
+          
+          // Vorhandenen Timeout löschen, falls einer existiert
+          if (roomCleanupTimeouts[roomId]) {
+            clearTimeout(roomCleanupTimeouts[roomId]);
           }
-        }, 5 * 60 * 1000); // 5 Minuten
+          
+          // Neuen Timeout setzen (3 Sekunden)
+          roomCleanupTimeouts[roomId] = setTimeout(() => {
+            // Erneut prüfen, ob noch keine menschlichen Spieler da sind
+            if (rooms[roomId] && countHumanPlayers(rooms[roomId]) === 0) {
+              console.log(`Lösche Raum ${roomId}, da keine menschlichen Spieler mehr vorhanden sind`);
+              delete rooms[roomId];
+              delete roomCleanupTimeouts[roomId];
+            }
+          }, 3000); // 3 Sekunden
+        } else {
+          // Wenn ein menschlicher Spieler bleibt, nach 30 Sekunden Spieler entfernen, wenn nicht wiederverbunden
+          setTimeout(() => {
+            // Prüfen, ob der Raum und der Spieler noch existieren
+            if (rooms[roomId] && rooms[roomId].players) {
+              const currentIndex = rooms[roomId].players.findIndex(p => 
+                p.username === player.username && p.disconnected
+              );
+              
+              if (currentIndex !== -1) {
+                // Spieler endgültig entfernen
+                console.log(`Spieler ${player.username} nach 30 Sekunden nicht wiederverbunden, entferne aus Raum ${roomId}`);
+                leaveRoom({ id: rooms[roomId].players[currentIndex].id }, roomId);
+              }
+            }
+          }, 30000); // 30 Sekunden
+        }
       }
     }
   });
@@ -703,24 +747,58 @@ function leaveRoom(socket, roomId) {
   room.players.splice(playerIndex, 1);
 
   // Socket aus dem Raum entfernen
-  socket.leave(roomId);
+  if (socket.leave) socket.leave(roomId);
 
   // Wenn der Raum leer ist, entferne ihn
   if (room.players.length === 0) {
     delete rooms[roomId];
+    
+    // Lösche auch den Timeout, falls einer existiert
+    if (roomCleanupTimeouts[roomId]) {
+      clearTimeout(roomCleanupTimeouts[roomId]);
+      delete roomCleanupTimeouts[roomId];
+    }
+    
     return;
+  }
+
+  // Prüfen, ob noch menschliche Spieler im Raum sind
+  const humanPlayersLeft = countHumanPlayers(room);
+  
+  // Wenn keine menschlichen Spieler mehr, starte Timeout zur Raumlöschung
+  if (humanPlayersLeft === 0) {
+    console.log(`Keine menschlichen Spieler mehr in Raum ${roomId}, starte 3-Sekunden-Countdown zur Löschung`);
+    
+    // Vorhandenen Timeout löschen, falls einer existiert
+    if (roomCleanupTimeouts[roomId]) {
+      clearTimeout(roomCleanupTimeouts[roomId]);
+    }
+    
+    // Neuen Timeout setzen (3 Sekunden)
+    roomCleanupTimeouts[roomId] = setTimeout(() => {
+      // Erneut prüfen, ob noch keine menschlichen Spieler da sind
+      if (rooms[roomId] && countHumanPlayers(rooms[roomId]) === 0) {
+        console.log(`Lösche Raum ${roomId}, da keine menschlichen Spieler mehr vorhanden sind`);
+        delete rooms[roomId];
+        delete roomCleanupTimeouts[roomId];
+      }
+    }, 3000); // 3 Sekunden
   }
 
   // Falls das Spiel noch nicht gestartet wurde oder bereits vorbei ist
   if (!room.gameStarted || room.gameOver) {
     // Wenn der Host den Raum verlässt, mache den nächsten Spieler zum Host
     if (player.isHost && room.players.length > 0) {
-      room.players[0].isHost = true;
+      // Finde den nächsten menschlichen Spieler
+      const nextHost = room.players.find(p => !p.isBot);
+      if (nextHost) {
+        nextHost.isHost = true;
+      }
     }
 
     // Spielerliste aktualisieren
     io.to(roomId).emit('playersUpdate', {
-      players: room.players
+      players: room.players.filter(p => !p.disconnected)
     });
 
     return;
@@ -794,20 +872,34 @@ function leaveRoom(socket, roomId) {
     cards: room.cards,
     handSizes: room.handSizes
   });
+  
+  // Wenn ein Bot an der Reihe ist, seinen Zug ausführen
+  if (room.players[room.currentPlayerIndex] && room.players[room.currentPlayerIndex].isBot) {
+    makeAutomaticBotMove(room);
+  }
 }
 
 // Funktion für automatische Bot-Züge
 function makeAutomaticBotMove(room) {
   // Kurze Verzögerung, damit es natürlicher wirkt
   setTimeout(() => {
+    // Sicherstellen, dass der Raum noch existiert
+    if (!room || !room.players) return;
+    
     const currentPlayerIndex = room.currentPlayerIndex;
+    // Sicherstellen, dass der Spielerindex gültig ist
+    if (currentPlayerIndex >= room.players.length) return;
+    
     const currentPlayer = room.players[currentPlayerIndex];
 
     // Sicherstellen, dass es sich um einen Bot handelt
-    if (!currentPlayer.isBot) return;
+    if (!currentPlayer || !currentPlayer.isBot) return;
 
     const botUsername = currentPlayer.username;
     const botHand = room.hands[botUsername];
+    
+    // Prüfen, ob der Bot Karten hat
+    if (!botHand || botHand.length === 0) return;
 
     // Spielbare Karten finden
     const playableCards = findPlayableCards(botHand, room.cards);
@@ -882,7 +974,7 @@ function makeAutomaticBotMove(room) {
         room.hands[botUsername] = [];
         room.handSizes[botUsername] = 0;
 
-        // Bot zu den Verlierern hinzufügen
+        // Bot zu den Gewinnern hinzufügen
         room.winners.push(botUsername);
 
         // Prüfen, ob das Spiel vorbei ist
@@ -909,7 +1001,7 @@ function makeAutomaticBotMove(room) {
     } while (room.winners.includes(room.players[room.currentPlayerIndex].username));
 
     // Updates an alle (menschlichen) Spieler senden
-    room.players.filter(p => !p.isBot).forEach(player => {
+    room.players.filter(p => !p.isBot && !p.disconnected).forEach(player => {
       io.to(player.id).emit('turnUpdate', {
         currentPlayer: room.players[room.currentPlayerIndex].username,
         cards: room.cards,
@@ -924,7 +1016,7 @@ function makeAutomaticBotMove(room) {
     });
 
     // Wenn wieder ein Bot an der Reihe ist, seinen Zug ausführen
-    if (room.players[room.currentPlayerIndex].isBot) {
+    if (room.players[room.currentPlayerIndex] && room.players[room.currentPlayerIndex].isBot) {
       makeAutomaticBotMove(room);
     }
   }, 1500); // 1,5 Sekunden Verzögerung
