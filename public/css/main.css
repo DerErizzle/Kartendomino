@@ -1,0 +1,236 @@
+/* Grundlegende Styles */
+:root {
+    --primary-color: #1b7e44;
+    --darker-primary: #156937;
+    --secondary-color: #6c757d;
+    --danger-color: #dc3545;
+    --success-color: #28a745;
+    --info-color: #17a2b8;
+    --warning-color: #ffc107;
+    --light-color: #f8f9fa;
+    --dark-color: #343a40;
+    --white-color: #ffffff;
+    --border-radius: 4px;
+    --shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  
+  body {
+    font-family: 'Roboto', Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    color: #fff;
+    background-color: var(--primary-color);
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  
+  /* Spieltisch-Hintergrund */
+  .game-table {
+    background-color: var(--primary-color);
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+  
+  /* SEVENS-Markierung auf dem Spieltisch */
+  .table-marking {
+    position: absolute;
+    font-size: 120px;
+    color: rgba(255, 255, 255, 0.1);
+    transform: rotate(-30deg);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  
+  .table-marking.left {
+    left: -100px;
+    top: 30%;
+  }
+  
+  .table-marking.right {
+    right: -100px;
+    bottom: 30%;
+  }
+  
+  /* Buttons und UI-Elemente */
+  .btn {
+    display: inline-block;
+    font-weight: 500;
+    text-align: center;
+    vertical-align: middle;
+    cursor: pointer;
+    padding: 10px 20px;
+    font-size: 1rem;
+    line-height: 1.5;
+    border-radius: 20px;
+    transition: all 0.2s ease;
+    border: none;
+    color: var(--white-color);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  }
+  
+  .btn-primary {
+    background-color: #007bff;
+  }
+  
+  .btn-primary:hover:not(:disabled) {
+    background-color: #0056b3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  }
+  
+  .btn-secondary {
+    background-color: var(--secondary-color);
+  }
+  
+  .btn-secondary:hover {
+    background-color: #5a6268;
+    transform: translateY(-2px);
+  }
+  
+  .btn-danger {
+    background-color: var(--danger-color);
+  }
+  
+  .btn-danger:hover {
+    background-color: #c82333;
+    transform: translateY(-2px);
+  }
+  
+  .btn-success {
+    background-color: var(--success-color);
+  }
+  
+  .btn-success:hover {
+    background-color: #218838;
+    transform: translateY(-2px);
+  }
+  
+  .btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+  
+  /* Spieler-Avatar und Anzeigen */
+  .avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 50%;
+    background-color: var(--dark-color);
+    color: white;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    border: 2px solid white;
+  }
+  
+  .avatar-small {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+  
+  .avatar-medium {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
+  }
+  
+  .avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  /* Spielfeld-Dekoration */
+  .field-decoration {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    height: 80%;
+    pointer-events: none;
+    opacity: 0.1;
+    z-index: 0;
+  }
+  
+  /* Spielkarten-Styles */
+  .card {
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .card-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  
+  .card.playable:hover {
+    transform: translateY(-15px);
+    box-shadow: 0 8px 15px rgba(255, 255, 0, 0.5);
+    z-index: 100;
+  }
+  
+  .card.unplayable {
+    filter: brightness(70%);
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    body {
+      font-size: 14px;
+    }
+    
+    .btn {
+      padding: 8px 16px;
+      font-size: 0.9rem;
+    }
+    
+    .avatar-small {
+      width: 30px;
+      height: 30px;
+      font-size: 14px;
+    }
+    
+    .avatar-medium {
+      width: 50px;
+      height: 50px;
+      font-size: 20px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    body {
+      font-size: 12px;
+    }
+    
+    .btn {
+      padding: 6px 12px;
+      font-size: 0.8rem;
+    }
+    
+    .avatar-small {
+      width: 25px;
+      height: 25px;
+      font-size: 12px;
+    }
+    
+    .avatar-medium {
+      width: 40px;
+      height: 40px;
+      font-size: 16px;
+    }
+  }
