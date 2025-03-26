@@ -62,7 +62,27 @@ export default {
       if (newVal) {
         this.$router.push({ name: 'Game', params: { roomId: this.roomId } });
       }
+    },
+    // Wenn nach 3 Sekunden keine Spieler da sind, zur Startseite zurückkehren
+    players: {
+      handler(newPlayers) {
+        if (newPlayers && newPlayers.length === 0 && this.attemptedJoin) {
+          // Verzögerung, um dem Server Zeit zu geben, Spieler zu aktualisieren
+          setTimeout(() => {
+            if (this.players.length === 0) {
+              console.log('Keine Spieler im Raum, leite zur Startseite weiter');
+              this.$router.push('/');
+            }
+          }, 3000);
+        }
+      },
+      deep: true
     }
+  },
+  data() {
+    return {
+      attemptedJoin: false
+    };
   },
   methods: {
     startGame() {
@@ -70,8 +90,14 @@ export default {
     },
 
     leaveRoom() {
-      this.$store.dispatch('leaveRoom', { roomId: this.roomId });
-      this.$router.push('/');
+      this.$store.dispatch('leaveRoom', { roomId: this.roomId })
+        .then(() => {
+          this.$router.push('/');
+        })
+        .catch(error => {
+          console.error('Fehler beim Verlassen des Raums:', error);
+          this.$router.push('/');
+        });
     },
 
     getInitials(name) {
@@ -82,14 +108,44 @@ export default {
       navigator.clipboard.writeText(this.roomId).then(() => {
         alert('Raumcode in die Zwischenablage kopiert!');
       });
+    },
+
+    attemptToJoinRoom() {
+      const storedUsername = this.$store.state.username || localStorage.getItem('username');
+      
+      if (storedUsername) {
+        // Versuche dem Raum beizutreten
+        this.$store.dispatch('reconnectToRoom', {
+          username: storedUsername,
+          roomId: this.roomId
+        }).catch(error => {
+          console.error('Fehler beim Beitreten zum Raum:', error);
+          this.$router.push('/');
+        });
+      } else {
+        // Kein Benutzername vorhanden, zur Startseite umleiten
+        this.$router.push('/');
+      }
+      
+      this.attemptedJoin = true;
     }
+  },
+  created() {
+    this.attemptToJoinRoom();
   },
   beforeRouteLeave(to, from, next) {
     // Raum nur verlassen, wenn nicht zum Spiel gewechselt wird
     if (to.name !== 'Game') {
-      this.leaveRoom();
+      this.$store.dispatch('leaveRoom', { roomId: this.roomId })
+        .then(() => {
+          next();
+        })
+        .catch(() => {
+          next();
+        });
+    } else {
+      next();
     }
-    next();
   }
 }
 </script>

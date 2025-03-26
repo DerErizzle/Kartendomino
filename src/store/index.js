@@ -10,12 +10,12 @@ export default createStore({
     players: [],
     gameStarted: false,
     currentPlayer: null,
-    cards: [], // Karten auf dem Board
-    hand: [], // Karten in der Hand des Spielers
-    handSizes: {}, // Anzahl der Karten pro Spieler
-    passCounts: {}, // Anzahl der Pässe pro Spieler
-    playerPositions: {}, // Positionen für jeden Spieler (1, 2, 3)
-    winners: [], // Gewinner in der Reihenfolge
+    cards: [],
+    hand: [],
+    handSizes: {},
+    passCounts: {},
+    playerPositions: {},
+    winners: [],
     gameOver: false,
     gameResults: []
   },
@@ -57,7 +57,6 @@ export default createStore({
     setPlayers(state, players) {
       state.players = players;
 
-      // Prüfen, ob der aktuelle Spieler der Host ist
       const currentPlayer = players.find(p => p.username === state.username);
       if (currentPlayer) {
         state.isHost = currentPlayer.isHost;
@@ -134,7 +133,6 @@ export default createStore({
             commit('setRoomId', response.roomId);
             commit('setIsHost', true);
 
-            // Session speichern
             const gameSession = {
               username,
               roomId: response.roomId,
@@ -154,22 +152,21 @@ export default createStore({
     },
 
     joinRoom({ commit }, { username, roomId }) {
-      commit('setUsername', username);  // Originalnamen zunächst setzen
+      commit('setUsername', username);
       commit('setRoomId', roomId);
       
       return new Promise((resolve, reject) => {
         socket.emit('joinRoom', { username, roomId }, (response) => {
           if (response && response.error) {
+            commit('setRoomId', null);
             reject(response.error);
           } else {
-            // Falls der Server einen modifizierten Namen zurückgibt, diesen verwenden
             if (response && response.username && response.username !== username) {
-              commit('setUsername', response.username);  // Aktualisierten Namen setzen
+              commit('setUsername', response.username);
             }
             
-            // Session speichern
             const gameSession = {
-              username: response?.username || username,  // Verwende den neuen Namen
+              username: response?.username || username,
               roomId,
               gameStarted: false,
               timestamp: new Date().getTime()
@@ -189,16 +186,13 @@ export default createStore({
       return new Promise((resolve, reject) => {
         socket.emit('reconnectToRoom', { username, roomId }, (response) => {
           if (response && response.error) {
-            // Raum existiert nicht mehr oder anderer Fehler
             console.error('Reconnection failed:', response.error);
 
-            // Spielsession löschen
             localStorage.removeItem('gameSession');
-
-            // Fehler zurückgeben
+            commit('setRoomId', null);
+            
             reject(response.error);
           } else {
-            // Erfolgreich wiederverbunden
             resolve();
           }
         });
@@ -227,12 +221,24 @@ export default createStore({
     },
 
     leaveRoom({ commit, state }, payload = {}) {
-      const roomId = payload?.roomId || state.roomId;
-      socket.emit('leaveRoom', { roomId });
-      commit('resetGame');
-      commit('setRoomId', null);
-
-      localStorage.removeItem('gameSession');
+      try {
+        const roomId = payload?.roomId || state.roomId;
+        
+        // Lokale Zustände zuerst bereinigen
+        commit('resetGame');
+        commit('setRoomId', null);
+        localStorage.removeItem('gameSession');
+        
+        // Dann den Server benachrichtigen
+        if (roomId) {
+          socket.emit('leaveRoom', { roomId });
+        }
+        
+        return Promise.resolve();
+      } catch (error) {
+        console.error('Error in leaveRoom action:', error);
+        return Promise.resolve();
+      }
     }
   }
 })
