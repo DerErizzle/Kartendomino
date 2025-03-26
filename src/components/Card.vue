@@ -4,6 +4,7 @@
     :class="{ 
       'playable': playable && !position, 
       'unplayable': !playable && !isFaceDown && !position && card,
+      'isolated': card && card.isIsolated, 
       'face-down': isFaceDown
     }"
     :style="cardStyle"
@@ -112,9 +113,6 @@ export default {
       
       return `${value} of ${suit}`;
     }
-  },
-  mounted() {
-    console.log('Card mounted, isFaceDown:', this.isFaceDown);
   }
 }
 </script>
@@ -141,7 +139,7 @@ export default {
   animation: none !important;
 }
 
-.card.unplayable {
+.card.unplayable, .card.isolated {
   opacity: 0.7;
   filter: brightness(70%);
 }

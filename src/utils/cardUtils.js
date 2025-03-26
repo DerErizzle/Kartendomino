@@ -125,6 +125,11 @@ export function findPlayableCards(hand, boardCards) {
     // Eine Karte ist spielbar, wenn sie neben eine Karte auf dem Brett gelegt werden kann
     // und die Position noch nicht belegt ist
     return boardCards.some(boardCard => {
+      // Ignoriere isolierte Karten
+      if (boardCard.isIsolated) {
+        return false;
+      }
+
       // Prüfen, ob die Karte neben die Board-Karte gelegt werden kann
       if (canPlayNextTo(card, boardCard)) {
         // Position berechnen
@@ -166,4 +171,70 @@ export function findPositionForCard(card, boardCards) {
   }
   
   return null;
+}
+
+// Prüft, ob eine Karte isoliert ist (d.h. nicht mit der Mitte verbunden)
+export function isCardIsolated(card, boardCards) {
+  // Wenn es eine 7er-Karte ist, ist sie nie isoliert
+  if (card.value === '07') return false;
+  
+  // Wert und Farbe der aktuellen Karte
+  const cardValue = parseInt(card.value);
+  const cardSuit = card.suit;
+  
+  // Finde alle Karten der gleichen Farbe auf dem Brett
+  const suitCards = boardCards.filter(bc => bc.suit === cardSuit);
+  
+  // Sortiere sie nach Wert
+  const sortedSuitCards = suitCards.sort((a, b) => 
+    parseInt(a.value) - parseInt(b.value)
+  );
+  
+  // Wenn keine anderen Karten dieser Farbe existieren, ist diese Karte isoliert
+  if (sortedSuitCards.length <= 1) return true;
+  
+  // Karten in 2 Gruppen aufteilen: links der 7 (1-6) und rechts der 7 (8-13)
+  if (cardValue < 7) {
+    // Für Karten links der 7: Prüfe, ob ein ununterbrochener Pfad zur 7 existiert
+    let current = cardValue;
+    while (current < 7) {
+      current++;
+      // Wenn die nächste Karte nicht existiert, ist die ursprüngliche Karte isoliert
+      if (!sortedSuitCards.some(c => parseInt(c.value) === current)) {
+        return true;
+      }
+    }
+  } else {
+    // Für Karten rechts der 7: Prüfe, ob ein ununterbrochener Pfad zur 7 existiert
+    let current = cardValue;
+    while (current > 7) {
+      current--;
+      // Wenn die vorherige Karte nicht existiert, ist die ursprüngliche Karte isoliert
+      if (!sortedSuitCards.some(c => parseInt(c.value) === current)) {
+        return true;
+      }
+    }
+  }
+  
+  // Wenn ein Pfad zur 7 existiert, ist die Karte nicht isoliert
+  return false;
+}
+
+// Markiert alle isolierten Karten auf dem Brett
+export function markIsolatedCards(boardCards) {
+  // Erstelle eine Kopie, um die ursprünglichen Daten nicht zu verändern
+  const updatedCards = [...boardCards];
+  
+  // Prüfe jede Karte
+  for (let i = 0; i < updatedCards.length; i++) {
+    const card = updatedCards[i];
+    
+    // Setze die isIsolated-Eigenschaft auf true oder false
+    updatedCards[i] = {
+      ...card,
+      isIsolated: isCardIsolated(card, boardCards)
+    };
+  }
+  
+  return updatedCards;
 }

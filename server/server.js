@@ -90,6 +90,72 @@ function dealCards(deck, numPlayers) {
   };
 }
 
+// Prüft, ob eine Karte isoliert ist (nicht mit der Mitte verbunden)
+function isCardIsolated(card, boardCards) {
+  // Wenn es eine 7er-Karte ist, ist sie nie isoliert
+  if (card.value === '07') return false;
+  
+  // Wert und Farbe der aktuellen Karte
+  const cardValue = parseInt(card.value);
+  const cardSuit = card.suit;
+  
+  // Finde alle Karten der gleichen Farbe auf dem Brett
+  const suitCards = boardCards.filter(bc => bc.suit === cardSuit);
+  
+  // Sortiere sie nach Wert
+  const sortedSuitCards = suitCards.sort((a, b) => 
+    parseInt(a.value) - parseInt(b.value)
+  );
+  
+  // Wenn keine anderen Karten dieser Farbe existieren, ist diese Karte isoliert
+  if (sortedSuitCards.length <= 1) return true;
+  
+  // Karten in 2 Gruppen aufteilen: links der 7 (1-6) und rechts der 7 (8-13)
+  if (cardValue < 7) {
+    // Für Karten links der 7: Prüfe, ob ein ununterbrochener Pfad zur 7 existiert
+    let current = cardValue;
+    while (current < 7) {
+      current++;
+      // Wenn die nächste Karte nicht existiert, ist die ursprüngliche Karte isoliert
+      if (!suitCards.some(c => parseInt(c.value) === current)) {
+        return true;
+      }
+    }
+  } else {
+    // Für Karten rechts der 7: Prüfe, ob ein ununterbrochener Pfad zur 7 existiert
+    let current = cardValue;
+    while (current > 7) {
+      current--;
+      // Wenn die vorherige Karte nicht existiert, ist die ursprüngliche Karte isoliert
+      if (!suitCards.some(c => parseInt(c.value) === current)) {
+        return true;
+      }
+    }
+  }
+  
+  // Wenn ein Pfad zur 7 existiert, ist die Karte nicht isoliert
+  return false;
+}
+
+// Markiert alle isolierten Karten auf dem Brett
+function markIsolatedCards(boardCards) {
+  // Erstelle eine Kopie, um die ursprünglichen Daten nicht zu verändern
+  const updatedCards = [...boardCards];
+  
+  // Prüfe jede Karte
+  for (let i = 0; i < updatedCards.length; i++) {
+    const card = updatedCards[i];
+    
+    // Setze die isIsolated-Eigenschaft
+    updatedCards[i] = {
+      ...card,
+      isIsolated: isCardIsolated(card, boardCards)
+    };
+  }
+  
+  return updatedCards;
+}
+
 function canPlayNextTo(card, boardCard) {
   // Gleiche Farbe und benachbarter Wert
   if (card.suit === boardCard.suit) {
@@ -126,6 +192,11 @@ function findPlayableCards(hand, boardCards) {
     // Eine Karte ist spielbar, wenn sie neben eine Karte auf dem Brett gelegt werden kann
     // und die Position noch nicht belegt ist
     return boardCards.some(boardCard => {
+      // Ignoriere Karten, die als isoliert markiert sind
+      if (boardCard.isIsolated) {
+        return false;
+      }
+
       // Prüfen, ob die Karte neben die Board-Karte gelegt werden kann
       if (canPlayNextTo(card, boardCard)) {
         // Position berechnen
@@ -218,6 +289,7 @@ io.on('connection', (socket) => {
       passCounts: {}, // Anzahl der Pässe pro Spieler
       currentPlayerIndex: 0,
       winners: [],
+      gameResults: [], // Detaillierte Ergebnisse
       botPlayers: []
     };
 
@@ -354,7 +426,10 @@ io.on('connection', (socket) => {
         
         // Wenn das Spiel vorbei ist
         if (rooms[roomId].winners && rooms[roomId].winners.length > 0) {
-          socket.emit('gameOver', { winners: rooms[roomId].winners });
+          socket.emit('gameOver', { 
+            winners: rooms[roomId].winners,
+            results: rooms[roomId].gameResults
+          });
         }
       }
     }
@@ -485,8 +560,17 @@ io.on('connection', (socket) => {
       position
     });
 
+    // Aktualisiere alle Karten und markiere isolierte Karten
+    room.cards = markIsolatedCards(room.cards);
+
     // Prüfen, ob der Spieler gewonnen hat
     if (playerHand.length === 0) {
+      // Zum Ergebnis hinzufügen (regulärer Gewinn)
+      room.gameResults.push({
+        username: player.username,
+        forfeit: false
+      });
+      
       room.winners.push(player.username);
 
       // Prüfen, ob das Spiel vorbei ist (alle Spieler haben gewonnen oder aufgegeben)
@@ -496,11 +580,38 @@ io.on('connection', (socket) => {
         // Finde den letzten Spieler und füge ihn zu den Gewinnern hinzu
         const lastPlayer = room.players.find(p => !room.winners.includes(p.username));
         if (lastPlayer) {
+          room.gameResults.push({
+            username: lastPlayer.username,
+            forfeit: false
+          });
           room.winners.push(lastPlayer.username);
         }
 
+        // Platzierungen berechnen
+        const regularWinners = room.gameResults.filter(r => !r.forfeit);
+        const forfeiters = room.gameResults.filter(r => r.forfeit);
+        
+        // Platzierungen zuweisen
+        let place = 1;
+        
+        // Normale Gewinner bekommen die besten Plätze
+        regularWinners.forEach(winner => {
+          winner.place = place++;
+        });
+        
+        // Aufgebende Spieler bekommen die schlechtesten Plätze
+        forfeiters.forEach(forfeiter => {
+          forfeiter.place = place++;
+        });
+        
+        // Sortiere die Ergebnisse nach Platzierung
+        const sortedResults = [...room.gameResults].sort((a, b) => a.place - b.place);
+
         // Spiel ist vorbei
-        io.to(roomId).emit('gameOver', { winners: room.winners });
+        io.to(roomId).emit('gameOver', { 
+          winners: room.winners, 
+          results: sortedResults 
+        });
         return;
       }
     }
@@ -596,6 +707,13 @@ io.on('connection', (socket) => {
 
     // Karten des Spielers auf dem Board verteilen
     const playerHand = room.hands[player.username];
+    
+    // Prüfen, ob der Spieler spielbare Karten hat
+    const playableCards = findPlayableCards(playerHand, room.cards);
+    
+    if (playableCards.length > 0) {
+      return socket.emit('error', { message: 'Du hast noch spielbare Karten und kannst nicht aufgeben.' });
+    }
 
     // Karten auf dem Board platzieren (an passenden Positionen)
     for (const card of playerHand) {
@@ -606,16 +724,24 @@ io.on('connection', (socket) => {
         room.cards.push({
           ...card,
           position,
-          disconnected: true
+          forfeitedCard: true // Markiere, dass diese Karte aufgegeben wurde
         });
       }
     }
+
+    // Aktualisiere alle Karten und markiere isolierte Karten
+    room.cards = markIsolatedCards(room.cards);
 
     // Hand des Spielers leeren
     room.hands[player.username] = [];
     room.handSizes[player.username] = 0;
 
-    // Spieler zu den Gewinnern hinzufügen (als letzter, da er aufgegeben hat)
+    // Spieler zu den Gewinnern hinzufügen (als aufgebende markiert)
+    room.gameResults.push({
+      username: player.username,
+      forfeit: true
+    });
+    
     room.winners.push(player.username);
 
     // Prüfen, ob das Spiel vorbei ist (alle Spieler haben gewonnen oder aufgegeben)
@@ -625,12 +751,39 @@ io.on('connection', (socket) => {
       // Finde den letzten Spieler und füge ihn zu den Gewinnern hinzu
       const lastPlayer = room.players.find(p => !room.winners.includes(p.username));
       if (lastPlayer) {
+        room.gameResults.push({
+          username: lastPlayer.username,
+          forfeit: false
+        });
         room.winners.push(lastPlayer.username);
       }
 
+      // Platzierungen berechnen
+      const regularWinners = room.gameResults.filter(r => !r.forfeit);
+      const forfeiters = room.gameResults.filter(r => r.forfeit);
+      
+      // Platzierungen zuweisen
+      let place = 1;
+      
+      // Normale Gewinner bekommen die besten Plätze
+      regularWinners.forEach(winner => {
+        winner.place = place++;
+      });
+      
+      // Aufgebende Spieler bekommen die schlechtesten Plätze
+      forfeiters.forEach(forfeiter => {
+        forfeiter.place = place++;
+      });
+      
+      // Sortiere die Ergebnisse nach Platzierung
+      const sortedResults = [...room.gameResults].sort((a, b) => a.place - b.place);
+
       // Spiel ist vorbei
       room.players.filter(p => !p.isBot).forEach(p => {
-        io.to(p.id).emit('gameOver', { winners: room.winners });
+        io.to(p.id).emit('gameOver', { 
+          winners: room.winners, 
+          results: sortedResults 
+        });
       });
       return;
     }
@@ -816,6 +969,10 @@ function leaveRoom(socket, roomId) {
 
   // Spieler zu den Verlierern hinzufügen, falls er noch nicht aufgegeben hatte
   if (!room.winners.includes(player.username)) {
+    room.gameResults.push({
+      username: player.username,
+      forfeit: true
+    });
     room.winners.push(player.username);
   }
 
@@ -832,10 +989,14 @@ function leaveRoom(socket, roomId) {
         room.cards.push({
           ...card,
           position,
+          forfeitedCard: true, // Markiere als aufgegebene Karte
           disconnected: true
         });
       }
     }
+
+    // Aktualisiere alle Karten und markiere isolierte Karten
+    room.cards = markIsolatedCards(room.cards);
 
     // Hand des Spielers leeren
     room.hands[player.username] = [];
@@ -851,11 +1012,38 @@ function leaveRoom(socket, roomId) {
     // Finde den letzten Spieler und füge ihn zu den Gewinnern hinzu
     const lastPlayer = room.players.find(p => !room.winners.includes(p.username));
     if (lastPlayer) {
+      room.gameResults.push({
+        username: lastPlayer.username,
+        forfeit: false
+      });
       room.winners.push(lastPlayer.username);
     }
 
+    // Platzierungen berechnen
+    const regularWinners = room.gameResults.filter(r => !r.forfeit);
+    const forfeiters = room.gameResults.filter(r => r.forfeit);
+    
+    // Platzierungen zuweisen
+    let place = 1;
+    
+    // Normale Gewinner bekommen die besten Plätze
+    regularWinners.forEach(winner => {
+      winner.place = place++;
+    });
+    
+    // Aufgebende Spieler bekommen die schlechtesten Plätze
+    forfeiters.forEach(forfeiter => {
+      forfeiter.place = place++;
+    });
+    
+    // Sortiere die Ergebnisse nach Platzierung
+    const sortedResults = [...room.gameResults].sort((a, b) => a.place - b.place);
+
     // Spiel ist vorbei
-    io.to(roomId).emit('gameOver', { winners: room.winners });
+    io.to(roomId).emit('gameOver', { 
+      winners: room.winners, 
+      results: sortedResults 
+    });
     return;
   }
 
@@ -928,8 +1116,15 @@ function makeAutomaticBotMove(room) {
           position
         });
 
+        // Aktualisiere alle Karten und markiere isolierte Karten
+        room.cards = markIsolatedCards(room.cards);
+
         // Prüfen, ob der Bot gewonnen hat
         if (botHand.length === 0) {
+          room.gameResults.push({
+            username: botUsername,
+            forfeit: false
+          });
           room.winners.push(botUsername);
 
           // Prüfen, ob das Spiel vorbei ist
@@ -938,12 +1133,39 @@ function makeAutomaticBotMove(room) {
             // Finde den letzten Spieler und füge ihn zu den Gewinnern hinzu
             const lastPlayer = room.players.find(p => !room.winners.includes(p.username));
             if (lastPlayer) {
+              room.gameResults.push({
+                username: lastPlayer.username,
+                forfeit: false
+              });
               room.winners.push(lastPlayer.username);
             }
 
+            // Platzierungen berechnen
+            const regularWinners = room.gameResults.filter(r => !r.forfeit);
+            const forfeiters = room.gameResults.filter(r => r.forfeit);
+            
+            // Platzierungen zuweisen
+            let place = 1;
+            
+            // Normale Gewinner bekommen die besten Plätze
+            regularWinners.forEach(winner => {
+              winner.place = place++;
+            });
+            
+            // Aufgebende Spieler bekommen die schlechtesten Plätze
+            forfeiters.forEach(forfeiter => {
+              forfeiter.place = place++;
+            });
+            
+            // Sortiere die Ergebnisse nach Platzierung
+            const sortedResults = [...room.gameResults].sort((a, b) => a.place - b.place);
+
             // Spiel ist vorbei
             room.players.filter(p => !p.isBot).forEach(player => {
-              io.to(player.id).emit('gameOver', { winners: room.winners });
+              io.to(player.id).emit('gameOver', { 
+                winners: room.winners, 
+                results: sortedResults 
+              });
             });
             return;
           }
@@ -965,16 +1187,23 @@ function makeAutomaticBotMove(room) {
             room.cards.push({
               ...card,
               position,
-              disconnected: true
+              forfeitedCard: true
             });
           }
         }
+
+        // Aktualisiere alle Karten und markiere isolierte Karten
+        room.cards = markIsolatedCards(room.cards);
 
         // Hand des Bots leeren
         room.hands[botUsername] = [];
         room.handSizes[botUsername] = 0;
 
         // Bot zu den Gewinnern hinzufügen
+        room.gameResults.push({
+          username: botUsername,
+          forfeit: true
+        });
         room.winners.push(botUsername);
 
         // Prüfen, ob das Spiel vorbei ist
@@ -983,12 +1212,39 @@ function makeAutomaticBotMove(room) {
           // Finde den letzten Spieler und füge ihn zu den Gewinnern hinzu
           const lastPlayer = room.players.find(p => !room.winners.includes(p.username));
           if (lastPlayer) {
+            room.gameResults.push({
+              username: lastPlayer.username,
+              forfeit: false
+            });
             room.winners.push(lastPlayer.username);
           }
 
+          // Platzierungen berechnen
+          const regularWinners = room.gameResults.filter(r => !r.forfeit);
+          const forfeiters = room.gameResults.filter(r => r.forfeit);
+          
+          // Platzierungen zuweisen
+          let place = 1;
+          
+          // Normale Gewinner bekommen die besten Plätze
+          regularWinners.forEach(winner => {
+            winner.place = place++;
+          });
+          
+          // Aufgebende Spieler bekommen die schlechtesten Plätze
+          forfeiters.forEach(forfeiter => {
+            forfeiter.place = place++;
+          });
+          
+          // Sortiere die Ergebnisse nach Platzierung
+          const sortedResults = [...room.gameResults].sort((a, b) => a.place - b.place);
+
           // Spiel ist vorbei
           room.players.filter(p => !p.isBot).forEach(player => {
-            io.to(player.id).emit('gameOver', { winners: room.winners });
+            io.to(player.id).emit('gameOver', { 
+              winners: room.winners, 
+              results: sortedResults 
+            });
           });
           return;
         }

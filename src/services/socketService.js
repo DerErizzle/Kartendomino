@@ -2,7 +2,7 @@ import { io } from 'socket.io-client';
 import store from '../store';
 
 // Bestimme die richtige Basis-URL basierend auf der Umgebung
-const baseURL = process.env.NODE_ENV === 'production' 
+const baseURL = process.env.NODE_ENV === 'production'
   ? window.location.origin // Verwende die aktuelle Domain im Produktionsmodus
   : 'http://localhost:3000'; // Explizite URL im Entwicklungsmodus
 
@@ -20,14 +20,14 @@ export const socket = io(baseURL, {
 // Erweiterte Socket Event Listeners
 socket.on('connect', () => {
   console.log('Connected to server', socket.id);
-  
+
   // Prüfe, ob eine Session wiederhergestellt werden muss
   const savedSession = localStorage.getItem('gameSession');
   if (savedSession) {
     try {
       const session = JSON.parse(savedSession);
       const currentTime = new Date().getTime();
-      
+
       // Prüfe, ob die Session nicht älter als 2 Stunden ist
       if (session.timestamp && (currentTime - session.timestamp < 7200000)) {
         console.log('Attempting to reconnect to previous session...');
@@ -44,7 +44,7 @@ socket.on('connect_error', (error) => {
 
 socket.on('disconnect', (reason) => {
   console.log(`Disconnected: ${reason}`);
-  
+
   if (reason === 'io server disconnect') {
     // Der Server hat die Verbindung geschlossen
     socket.connect();
@@ -76,7 +76,7 @@ socket.on('playersUpdate', ({ players }) => {
 
 socket.on('gameStarted', ({ currentPlayer, hand, cards, playerPositions, handSizes }) => {
   console.log('Game started event received:', { currentPlayer, handSizes, playerPositions });
-  
+
   // Session im localStorage speichern
   const gameSession = {
     username: store.state.username,
@@ -85,7 +85,7 @@ socket.on('gameStarted', ({ currentPlayer, hand, cards, playerPositions, handSiz
     timestamp: new Date().getTime()
   };
   localStorage.setItem('gameSession', JSON.stringify(gameSession));
-  
+
   store.commit('setGameStarted', true);
   store.commit('setCurrentPlayer', currentPlayer);
   store.commit('setHand', hand || []);
@@ -126,12 +126,15 @@ socket.on('playerDisconnected', ({ username }) => {
   console.log(`Player ${username} disconnected`);
 });
 
-socket.on('gameOver', ({ winners }) => {
-  console.log('Game over:', winners);
+socket.on('gameOver', ({ winners, results }) => {
+  console.log('Game over:', winners, results);
   if (winners && winners.length) {
     winners.forEach(winner => {
       store.commit('addWinner', winner);
     });
+  }
+  if (results) {
+    store.commit('setGameResults', results);
   }
   store.commit('setGameOver', true);
 });

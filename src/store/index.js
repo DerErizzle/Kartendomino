@@ -16,7 +16,8 @@ export default createStore({
     passCounts: {}, // Anzahl der Pässe pro Spieler
     playerPositions: {}, // Positionen für jeden Spieler (1, 2, 3)
     winners: [], // Gewinner in der Reihenfolge
-    gameOver: false
+    gameOver: false,
+    gameResults: []
   },
   getters: {
     playableCards: (state) => {
@@ -102,6 +103,10 @@ export default createStore({
       if (!state.winners.includes(player)) {
         state.winners.push(player);
       }
+    },
+
+    setGameResults(state, results) {
+      state.gameResults = results;
     },
     
     setGameOver(state, gameOver) {

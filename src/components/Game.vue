@@ -38,16 +38,21 @@
 
       <!-- Aktionsbuttons -->
       <div class="game-actions">
-        <button class="btn-action" @click="passesRemaining > 0 ? passMove() : forfeitGame()" :disabled="!isMyTurn"
-          :class="{ 'btn-forfeit': passesRemaining <= 0 }">
+        <button class="btn-action" 
+              @click="passesRemaining > 0 ? passMove() : forfeitGame()" 
+              :disabled="!isMyTurn || (passesRemaining <= 0 && !canForfeit)"
+              :class="{ 'btn-forfeit': passesRemaining <= 0 }">
           {{ passesRemaining > 0 ? `Passen (${passCounts[username] || 0}/3)` : 'Aufgeben' }}
         </button>
       </div>
 
       <!-- Spieler-Handkarten unten -->
-      <div class="hand-container">
+      <div class="hand-container" v-if="!hasForfeited">
         <CardHand :cards="hand" :isMyTurn="isMyTurn" :playableCards="playableCards" :maxWidth="handMaxWidth"
           @play-card="playCard" />
+      </div>
+      <div class="hand-container forfeit-message" v-else>
+        <div>Du hast aufgegeben und kannst nicht mehr spielen.</div>
       </div>
 
       <!-- Spielstatus Overlay -->
@@ -57,8 +62,9 @@
           <div class="winners-list">
             <h3>Spieler-Rangliste:</h3>
             <ol>
-              <li v-for="(winner, index) in winners" :key="index">
-                {{ winner }}
+              <li v-for="(result, index) in $store.state.gameResults" :key="index" 
+                  :class="{ 'forfeited': result.forfeit }">
+                {{ result.username }} {{ result.forfeit ? '(aufgegeben)' : '' }}
               </li>
             </ol>
           </div>
@@ -92,7 +98,8 @@ export default {
       handMaxWidth: 0,
       windowWidth: 0,
       windowHeight: 0,
-      showDebug: true // Debug-Informationen anzeigen
+      showDebug: true, // Debug-Informationen anzeigen
+      gameResults: []
     };
   },
   computed: {
@@ -117,11 +124,24 @@ export default {
       return 3 - (this.passCounts[this.username] || 0);
     },
 
+    canForfeit() {
+      return this.isMyTurn && this.playableCards.length === 0;
+    },
+
+    hasForfeited() {
+      return this.winners.includes(this.username);
+    },
+
     playableCards() {
       if (!this.isMyTurn) return [];
 
       return this.hand.filter(card => {
         return this.cards.some(boardCard => {
+          // Ignoriere isolierte Karten
+          if (boardCard.isIsolated) {
+            return false;
+          }
+
           // Gleiche Farbe und Wert ist um 1 höher oder niedriger
           const sameSuit = boardCard.suit === card.suit;
           const cardValue = parseInt(card.value);
@@ -265,7 +285,7 @@ export default {
     },
 
     forfeitGame() {
-      if (this.isMyTurn) {
+      if (this.isMyTurn && this.canForfeit) {
         this.$store.dispatch('forfeit', {
           roomId: this.roomId
         });
@@ -336,5 +356,19 @@ export default {
   height: 100vh;
   overflow: hidden;
   position: relative;
+}
+
+.forfeit-message {
+  text-align: center;
+  color: white;
+  background-color: rgba(0, 0, 0, 0.6);
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.forfeited {
+  color: #dc3545;
+  font-style: italic;
 }
 </style>
