@@ -20,13 +20,13 @@
       <div class="action-container">
         <div class="action-box">
           <h3>Neues Spiel</h3>
-          <button 
+          <SoundButton 
             class="btn-action create" 
             @click="createRoom" 
             :disabled="!isValidUsername"
           >
             Raum erstellen
-          </button>
+          </SoundButton>
         </div>
         
         <div class="action-box" :class="{ 'highlight': prefillRoomId }">
@@ -40,13 +40,13 @@
               pattern="[0-9]{3}"
               @keyup.enter="joinRoom"
             />
-            <button 
+            <SoundButton 
               class="btn-action join"
               @click="joinRoom" 
               :disabled="!isValidUsername || !isValidRoomId"
             >
               Beitreten
-            </button>
+            </SoundButton>
           </div>
         </div>
       </div>
@@ -56,12 +56,14 @@
 
 <script>
 import AudioControls from './AudioControls.vue';
+import SoundButton from './SoundButton.vue';
 import audioService from '../services/audioService';
 
 export default {
   name: 'Login',
   components: {
-    AudioControls
+    AudioControls,
+    SoundButton
   },
   data() {
     return {

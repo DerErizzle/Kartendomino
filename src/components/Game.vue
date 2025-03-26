@@ -1,5 +1,8 @@
 <template>
   <div class="game-container">
+    <!-- Global Transition für den nahtlosen Übergang vom GameRoom -->
+    <GlobalTransition v-if="showTransition" ref="globalTransition" @transition-complete="transitionComplete" />
+    
     <div class="game-table">
       <!-- Audio Controls -->
       <AudioControls />
@@ -28,24 +31,27 @@
         <!-- Die vier 7er Karten in der Mitte -->
         <div class="seven-cards">
           <Card v-for="card in sevenCards" :key="card.id" :card="card" :playable="false"
-            :position="getSevenCardPosition(card)" :clickable="false" />
+            :position="getSevenCardPosition(card)" :clickable="false" :enableHoverSound="false" />
         </div>
 
         <!-- Alle anderen Karten auf dem Spielfeld -->
         <div class="board-cards">
           <Card v-for="card in nonSevenCards" :key="card.id" :card="card" :playable="false"
-            :position="getBoardCardPosition(card)" :clickable="false" />
+            :position="getBoardCardPosition(card)" :clickable="false" :enableHoverSound="false" />
         </div>
       </div>
 
       <!-- Aktionsbuttons -->
       <div class="game-actions">
-        <button class="btn-action" 
-              @click="passesRemaining > 0 ? passMove() : forfeitGame()" 
-              :disabled="!isMyTurn || (passesRemaining <= 0 && !canForfeit)"
-              :class="{ 'btn-forfeit': passesRemaining <= 0 }">
+        <SoundButton 
+          class="btn-action" 
+          :class="{ 'btn-forfeit': passesRemaining <= 0 }"
+          @click="handleButtonClick" 
+          :disabled="!isMyTurn || (passesRemaining <= 0 && !canForfeit)"
+          :enableClickSound="false"
+        >
           {{ passesRemaining > 0 ? `Passen (${passCounts[username] || 0}/3)` : 'Aufgeben' }}
-        </button>
+        </SoundButton>
       </div>
 
       <!-- Spieler-Handkarten unten -->
@@ -54,7 +60,7 @@
           @play-card="playCard" />
       </div>
       <div class="hand-container forfeit-message" v-else>
-        <div>Du hast aufgegeben und kannst nicht mehr spielen.</div>
+        <div>{{ getPlayerStatusMessage() }}</div>
       </div>
 
       <!-- Spielstatus Overlay -->
@@ -70,7 +76,7 @@
               </li>
             </ol>
           </div>
-          <button class="btn-new-game" @click="leaveGame">Zurück zur Lobby</button>
+          <SoundButton class="btn-new-game" @click="leaveGame">Zurück zur Lobby</SoundButton>
         </div>
       </div>
     </div>
@@ -82,6 +88,8 @@ import Card from './Card.vue';
 import CardHand from './CardHand.vue';
 import Player from './Player.vue';
 import AudioControls from './AudioControls.vue';
+import SoundButton from './SoundButton.vue';
+import GlobalTransition from './GlobalTransition.vue';
 import audioService from '../services/audioService';
 
 export default {
@@ -90,7 +98,9 @@ export default {
     Card,
     CardHand,
     Player,
-    AudioControls
+    AudioControls,
+    SoundButton,
+    GlobalTransition
   },
   props: {
     roomId: {
@@ -105,7 +115,15 @@ export default {
       windowHeight: 0,
       showDebug: false, // Debug-Informationen anzeigen
       gameResults: [],
-      didIWin: false // Track if player won for music selection
+      didIWin: false, // Track if player won for music selection
+      previousCurrentPlayer: null, // To track current player changes for sound effects
+      scoreTallyPlayed: false, // To track if score tally sound has been played
+      gameStartingSoundPlayed: false, // Flag to track if the starting sound was just played
+      bgmStarted: false, // Flag to track if BGM has started
+      actionInProgress: false, // Flag to prevent multiple click events
+      playerForfeitStatus: false, // Flag um zu speichern, ob der Spieler aufgegeben hat
+      reconnectAttempted: false, // Flag, um mehrfache Reconnect-Versuche zu verhindern
+      showTransition: false // Flag to control the global transition overlay
     };
   },
   computed: {
@@ -120,6 +138,7 @@ export default {
     winners() { return this.$store.state.winners || []; },
     gameOver() { return this.$store.state.gameOver; },
     handSizes() { return this.$store.state.handSizes || {}; },
+    gameResults() { return this.$store.state.gameResults || []; },
 
     // Abgeleitete Eigenschaften
     isMyTurn() {
@@ -137,9 +156,18 @@ export default {
     hasForfeited() {
       return this.winners.includes(this.username);
     },
+    
+    // Prüfen, ob der Spieler regulär gewonnen hat oder aufgegeben hat
+    hasRegularWin() {
+      // Suche den Eintrag des Spielers in den Ergebnissen
+      const playerResult = this.gameResults.find(r => r.username === this.username);
+      return playerResult && !playerResult.forfeit;
+    },
 
     playableCards() {
-      if (!this.isMyTurn) return [];
+      if (!this.isMyTurn) {
+        return [];
+      }
 
       return this.hand.filter(card => {
         return this.cards.some(boardCard => {
@@ -199,22 +227,123 @@ export default {
   },
   watch: {
     gameOver(newVal) {
-      if (newVal) {
-        // Determine if player won to choose the right music
+      if (newVal && !this.scoreTallyPlayed) {
+        // Determine if player won to choose the right music and sound
         if (this.$store.state.gameResults && this.$store.state.gameResults.length > 0) {
           const playerResult = this.$store.state.gameResults.find(r => r.username === this.username);
-          if (playerResult && playerResult.place === 1) {
-            this.didIWin = true;
-            audioService.playBgm('win');
-          } else {
-            this.didIWin = false;
-            audioService.playBgm('lose');
+          
+          if (playerResult) {
+            // Speichere den Aufgabe-Status
+            this.playerForfeitStatus = playerResult.forfeit;
+            
+            // Play scoreboard appear sound first
+            if (playerResult.place === 1) {
+              this.didIWin = true;
+              audioService.playScoreboardWin();
+            } else {
+              this.didIWin = false;
+              audioService.playScoreboardLose();
+            }
+            
+            // After a delay, play the tally sound and then the music
+            setTimeout(() => {
+              audioService.playScoreboardTally();
+              this.scoreTallyPlayed = true;
+              
+              // After tally sound, start appropriate music
+              setTimeout(() => {
+                if (this.didIWin) {
+                  audioService.playBgm('win');
+                } else {
+                  audioService.playBgm('lose');
+                }
+              }, 1000);
+            }, 1000);
           }
         }
+      }
+    },
+    currentPlayer(newVal, oldVal) {
+      // Play the "your turn" sound when it becomes the player's turn
+      if (newVal === this.username && oldVal !== this.username) {
+        audioService.playYourTurnSound();
       }
     }
   },
   methods: {
+    // Neue Methode für Status-Nachricht
+    getPlayerStatusMessage() {
+      // Prüfe die Platzierung des Spielers, falls das Spiel vorbei ist
+      if (this.gameOver) {
+        const playerResult = this.gameResults.find(r => r.username === this.username);
+        
+        if (playerResult) {
+          if (playerResult.forfeit) {
+            return "Du hast aufgegeben und kannst nicht mehr spielen.";
+          } else if (playerResult.place === 1) {
+            return "Glückwunsch! Du hast das Spiel gewonnen!";
+          } else {
+            return `Du hast Platz ${playerResult.place} erreicht.`;
+          }
+        }
+      }
+      
+      // Wenn das Spiel noch läuft und der Spieler aufgegeben hat
+      if (this.hasForfeited) {
+        // Prüfe, ob der Spieler keine Karten mehr hat
+        if (this.hand.length === 0 && !this.playerForfeitStatus) {
+          return "Du hast keine Karten mehr und hast das Spiel beendet.";
+        } else {
+          return "Du hast aufgegeben und kannst nicht mehr spielen.";
+        }
+      }
+      
+      // Sollte nicht erreicht werden, da dieser Text nur angezeigt wird, wenn hasForfeited true ist
+      return "";
+    },
+    
+    // Transition completed handler
+    transitionComplete() {
+      this.showTransition = false;
+      localStorage.removeItem('gameTransitionActive');
+      
+      // Start game BGM now that transition is complete
+      this.startBackgroundMusic();
+      
+      // If it's the player's turn, play the "your turn" sound
+      if (this.isMyTurn) {
+        setTimeout(() => {
+          audioService.playYourTurnSound();
+        }, 500);
+      }
+    },
+    
+    // Neue Methode, die zwischen Passen und Aufgeben unterscheidet
+    handleButtonClick() {
+      // Verhindere mehrfache Klicks
+      if (this.actionInProgress) return;
+      
+      // Nur wenn der Spieler an der Reihe ist
+      if (!this.isMyTurn) return;
+      
+      this.actionInProgress = true;
+      
+      try {
+        if (this.passesRemaining > 0) {
+          this.passMove();
+        } else if (this.canForfeit) {
+          this.forfeitGame();
+          // Setze den Status sofort, um die richtige Nachricht anzuzeigen
+          this.playerForfeitStatus = true;
+        }
+      } finally {
+        // Setze den Flag zurück
+        setTimeout(() => {
+          this.actionInProgress = false;
+        }, 1000);
+      }
+    },
+    
     getPlayerPosition(username) {
       // Falls eine Position im Store definiert ist, verwende diese
       if (this.playerPositions && this.playerPositions[username]) {
@@ -259,6 +388,7 @@ export default {
       const position = this.findPositionForCard(card);
 
       if (position) {
+        // Play card sound will be handled by Card component on click
         this.$store.dispatch('playCard', {
           roomId: this.roomId,
           card,
@@ -301,17 +431,21 @@ export default {
 
     passMove() {
       if (this.isMyTurn && this.passesRemaining > 0) {
+        // Spiele zuerst den Sound ab
+        audioService.playPassSound();
+        
+        // Dann sende die Aktion zum Server
         this.$store.dispatch('pass', {
           roomId: this.roomId
         });
-        
-        // Play pass sound effect directly when user clicks pass
-        audioService.playPassSound();
       }
     },
 
     forfeitGame() {
       if (this.isMyTurn && this.canForfeit) {
+        // Play surrender sound
+        audioService.playSurrenderSound();
+        
         this.$store.dispatch('forfeit', {
           roomId: this.roomId
         });
@@ -319,10 +453,16 @@ export default {
     },
 
     leaveGame() {
+      // Play quit sound
+      audioService.playUIQuit();
+      
+      // Stop all background music
       audioService.stopAllBgm();
+      
       this.$store.dispatch('leaveRoom', {
         roomId: this.roomId
       });
+      
       this.$router.push('/');
     },
 
@@ -330,26 +470,61 @@ export default {
       this.windowWidth = window.innerWidth;
       this.windowHeight = window.innerHeight;
       this.handMaxWidth = Math.min(1200, this.windowWidth - 40);
+    },
+    
+    // Starte die Spielmusik verzögert nach dem Übergang
+    startBackgroundMusic() {
+      if (!this.bgmStarted) {
+        // Start game BGM
+        this.bgmStarted = true;
+        audioService.playBgm('game');
+      }
+    },
+    
+    // Versuche, an ein laufendes Spiel anzuschließen (via Socket.io)
+    reconnectToGame() {
+      if (this.reconnectAttempted) return;
+      
+      this.reconnectAttempted = true;
+      
+      console.log("Checking if game needs reconnection...");
+      
+      // Wenn das Spiel im Store noch nicht gestartet ist
+      if (!this.$store.state.gameStarted) {
+        console.log("Game not started, attempting to reconnect...");
+        
+        // Versuchen, dem Raum erneut beizutreten und Daten zu holen
+        this.$store.dispatch('reconnectToRoom', {
+          username: this.username,
+          roomId: this.roomId
+        }).then(() => {
+          console.log("Successfully reconnected to game room");
+        }).catch(error => {
+          console.error("Failed to reconnect to game room:", error);
+          // Wenn das Spiel bereits gestartet ist, aber wir sind nicht drin, bleiben wir trotzdem
+          // auf dieser Seite - der Server wird uns die Daten senden
+          if (error && error.includes && error.includes("Spiel bereits gestartet")) {
+            console.log("Game already started, waiting for data...");
+          } else {
+            // Bei anderen Fehlern zur Startseite navigieren
+            this.$router.push('/');
+          }
+        });
+      }
     }
   },
   created() {
     window.addEventListener('resize', this.updateWindowSize);
     this.updateWindowSize();
-
-    // Socket-Status prüfen und ggf. Reconnect versuchen
-    if (!this.$store.state.gameStarted) {
-      console.log("Reconnecting to game room...");
-      this.$store.dispatch('reconnectToRoom', {
-        username: this.username,
-        roomId: this.roomId
-      }).then(() => {
-        console.log("Successfully reconnected to game room");
-      }).catch(error => {
-        console.error("Failed to reconnect to game room:", error);
-        // Bei Fehler zur Startseite navigieren
-        this.$router.push('/');
-      });
-    }
+    
+    // Check if transition is active
+    const transitionActive = localStorage.getItem('gameTransitionActive') === 'true';
+    this.showTransition = transitionActive;
+    
+    // Socket-Status prüfen und ggf. Reconnect versuchen - mit Verzögerung
+    setTimeout(() => {
+      this.reconnectToGame();
+    }, 500);
 
     console.log('Game component created', {
       players: this.players,
@@ -357,29 +532,53 @@ export default {
       opponents: this.opponents,
       currentPlayer: this.currentPlayer
     });
+    
+    // Store currentPlayer for sound effects
+    this.previousCurrentPlayer = this.currentPlayer;
   },
   mounted() {
     console.log('Game component mounted', {
       players: this.players,
       handSizes: this.handSizes,
       opponents: this.opponents,
-      currentPlayer: this.currentPlayer
+      currentPlayer: this.currentPlayer,
+      transitionActive: this.showTransition
     });
     
-    // Initialize audio and start game music
+    // Initialize audio service
     audioService.init();
-    audioService.playBgm('game');
+    
+    // Start the fade from black to game if transition is active
+    if (this.showTransition && this.$refs.globalTransition) {
+      setTimeout(() => {
+        this.$refs.globalTransition.fadeToGame();
+      }, 500);
+    } else {
+      // Otherwise, start background music directly
+      this.startBackgroundMusic();
+      
+      // If it's the player's turn, play the "your turn" sound
+      if (this.isMyTurn) {
+        // Slight delay to make sure previous sounds have finished
+        setTimeout(() => {
+          audioService.playYourTurnSound();
+        }, 1000);
+      }
+    }
   },
   beforeUnmount() {
     window.removeEventListener('resize', this.updateWindowSize);
     
-    // Stop all audio when leaving the game
+    // Stop all background music
     audioService.stopAllBgm();
 
     // Beim Verlassen der Komponente den Raum verlassen
     if (this.roomId && !this.gameOver) {
       this.$store.dispatch('leaveRoom', { roomId: this.roomId });
     }
+    
+    // Clean up transition flag
+    localStorage.removeItem('gameTransitionActive');
   }
 }
 </script>
@@ -404,5 +603,20 @@ export default {
 .forfeited {
   color: #dc3545;
   font-style: italic;
+}
+
+.btn-new-game {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 12px 30px;
+  font-size: 16px;
+  margin-top: 20px;
+  cursor: pointer;
+}
+
+.btn-new-game:hover {
+  background-color: #218838;
 }
 </style>

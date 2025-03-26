@@ -3,11 +3,14 @@
     <!-- Audio Controls -->
     <AudioControls />
     
+    <!-- Game Transition Overlay -->
+    <GameTransition ref="gameTransition" />
+    
     <div class="room-header">
       <h1>Warteraum</h1>
       <div class="room-info">
         <span class="room-code">Raumcode: <strong>{{ roomId }}</strong></span>
-        <button class="btn-copy" @click="copyRoomCode">Kopieren</button>
+        <SoundButton class="btn-copy" @click="copyRoomCode">Kopieren</SoundButton>
       </div>
     </div>
 
@@ -33,21 +36,34 @@
     </div>
 
     <div class="room-actions">
-      <button v-if="isHost" class="btn-start" @click="startGame" :disabled="players.length < 1">
-        Spiel starten {{ players.length < 4 ? '(mit Bots)' : '' }} </button>
-          <button class="btn-leave" @click="leaveRoom">Raum verlassen</button>
+      <SoundButton v-if="isHost" 
+                  class="btn-start" 
+                  :disabled="players.length < 1 || transitioning" 
+                  @click="startGame"
+                  :enableClickSound="false">
+        Spiel starten {{ players.length < 4 ? '(mit Bots)' : '' }}
+      </SoundButton>
+      <SoundButton class="btn-leave" 
+                  @click="leaveRoom" 
+                  sound="quit">
+        Raum verlassen
+      </SoundButton>
     </div>
   </div>
 </template>
 
 <script>
 import AudioControls from './AudioControls.vue';
+import GameTransition from './GameTransition.vue';
+import SoundButton from './SoundButton.vue';
 import audioService from '../services/audioService';
 
 export default {
   name: 'GameRoom',
   components: {
-    AudioControls
+    AudioControls,
+    GameTransition,
+    SoundButton
   },
   props: {
     roomId: {
@@ -68,37 +84,78 @@ export default {
   },
   watch: {
     gameStarted(newVal) {
-      if (newVal) {
-        this.$router.push({ name: 'Game', params: { roomId: this.roomId } });
+      if (newVal && !this.transitionTriggeredByUser) {
+        console.log('Game started via server, transitioning...');
+        // Nur wenn wir nicht selbst den Spielstart ausgelöst haben
+        this.transitionToGame();
       }
-    },
-    // Wenn nach 3 Sekunden keine Spieler da sind, zur Startseite zurückkehren
-    players: {
-      handler(newPlayers) {
-        if (newPlayers && newPlayers.length === 0 && this.attemptedJoin) {
-          // Verzögerung, um dem Server Zeit zu geben, Spieler zu aktualisieren
-          setTimeout(() => {
-            if (this.players.length === 0) {
-              console.log('Keine Spieler im Raum, leite zur Startseite weiter');
-              this.$router.push('/');
-            }
-          }, 3000);
-        }
-      },
-      deep: true
     }
   },
   data() {
     return {
-      attemptedJoin: false
+      attemptedJoin: false,
+      transitioning: false,
+      transitionComplete: false,
+      transitionTriggeredByUser: false
     };
   },
   methods: {
-    startGame() {
-      this.$store.dispatch('startGame');
+    async startGame() {
+      // Verhindern, dass der Button mehrfach geklickt wird
+      if (this.transitioning) return;
+      
+      this.transitioning = true;
+      this.transitionTriggeredByUser = true;
+      
+      try {
+        // 1. Starte den visuellen Übergang
+        await this.$refs.gameTransition.startTransition();
+        
+        // 2. WICHTIG: Speichere dass ein Übergang stattfindet in der localStorage
+        localStorage.setItem('gameTransitionActive', 'true');
+        
+        // 3. Starte das Spiel im Store erst kurz bevor wir zum Spiel wechseln
+        this.$store.dispatch('startGame');
+        
+        // 4. Nach kurzem Delay zum Spiel navigieren
+        // Der Bildschirm bleibt schwarz während des Routenwechsels
+        this.$router.push({ name: 'Game', params: { roomId: this.roomId } });
+      } catch (error) {
+        console.error('Game transition error:', error);
+        this.transitioning = false;
+        this.transitionTriggeredByUser = false;
+        localStorage.removeItem('gameTransitionActive');
+      }
+    },
+    
+    async transitionToGame() {
+      if (this.transitioning) return;
+      
+      try {
+        this.transitioning = true;
+        
+        // Starte den visuellen Übergang
+        await this.$refs.gameTransition.startTransition();
+        
+        // Markiere dass ein Übergang aktiv ist
+        localStorage.setItem('gameTransitionActive', 'true');
+        
+        // Zum Spiel navigieren
+        this.$router.push({ name: 'Game', params: { roomId: this.roomId } });
+      } catch (error) {
+        console.error('Error during game transition:', error);
+        this.transitioning = false;
+        localStorage.removeItem('gameTransitionActive');
+      }
     },
 
     leaveRoom() {
+      // Play quit sound
+      audioService.playUIQuit();
+      
+      // Stoppe alle Sounds, falls welche spielen
+      audioService.stopAllSFX();
+      
       this.$store.dispatch('leaveRoom', { roomId: this.roomId })
         .then(() => {
           this.$router.push('/');
@@ -147,11 +204,11 @@ export default {
     audioService.init();
   },
   beforeRouteLeave(to, from, next) {
-    // Simply proceed to next route
-    // No music to stop since we don't play any on this screen
-    
     // Raum nur verlassen, wenn nicht zum Spiel gewechselt wird
     if (to.name !== 'Game') {
+      // Play quit sound if not going to game
+      audioService.playUIQuit();
+      
       this.$store.dispatch('leaveRoom', { roomId: this.roomId })
         .then(() => {
           next();
@@ -160,7 +217,15 @@ export default {
           next();
         });
     } else {
+      // Transition ist bereits aktiv, wir gehen zum Spiel
       next();
+    }
+  },
+  beforeUnmount() {
+    // Clean up transition if component is being unmounted
+    // but only if we're not transitioning to the game
+    if (this.$refs.gameTransition && this.$route.name !== 'Game') {
+      this.$refs.gameTransition.cleanUp();
     }
   }
 }

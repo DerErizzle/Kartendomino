@@ -9,6 +9,7 @@
     }"
     :style="cardStyle"
     @click="onClick"
+    @mouseenter="onMouseEnter"
   >
     <img 
       v-if="!isFaceDown" 
@@ -26,6 +27,8 @@
 </template>
 
 <script>
+import audioService from '../services/audioService';
+
 export default {
   name: 'Card',
   props: {
@@ -51,6 +54,11 @@ export default {
       default: 1
     },
     clickable: {
+      type: Boolean,
+      default: true
+    },
+    // Wenn wahr, wird der Hover-Sound abgespielt
+    enableHoverSound: {
       type: Boolean,
       default: true
     }
@@ -84,7 +92,15 @@ export default {
   methods: {
     onClick() {
       if (this.clickable && this.playable) {
+        // Play card sound on click for playable cards
+        audioService.playCardSound();
         this.$emit('card-click', this.card);
+      }
+    },
+    onMouseEnter() {
+      // Play hover sound if card is playable and hoverable
+      if (this.clickable && this.playable && this.enableHoverSound && !this.isFaceDown) {
+        audioService.playCardHoverSound();
       }
     },
     getCardImageSrc(card) {

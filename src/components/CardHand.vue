@@ -13,6 +13,7 @@
         :playable="isCardPlayable(card)"
         :inHand="true"
         @card-click="onCardClick"
+        :enableHoverSound="true"
       />
     </div>
   </div>

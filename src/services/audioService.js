@@ -28,7 +28,27 @@ class AudioService {
       },
       // Sound effects
       sfx: {
-        pass: null
+        // Existing SFX
+        pass: null,
+        
+        // UI SFX
+        uiHover: null,
+        uiClick: null,
+        uiStartGame: null,
+        uiQuit: null,
+        
+        // Game SFX
+        gameStarting: null,
+        yourTurn: null,
+        cardHover: null,
+        playCard: null,
+        passOther: null,
+        surrender: null,
+        
+        // Scoreboard SFX
+        scoreboardWin: null,
+        scoreboardLose: null,
+        scoreboardTally: null
       }
     };
 
@@ -88,9 +108,79 @@ class AudioService {
       loop: true
     });
 
-    // Sound effects
+    // Sound effects - Existing
     this.sounds.sfx.pass = new Howl({
       src: ['/assets/SFX_SEVENS_pass.ogg'],
+      volume: this.sfxVolume
+    });
+
+    // NEW SOUND EFFECTS
+    
+    // UI Sound Effects
+    this.sounds.sfx.uiHover = new Howl({
+      src: ['/assets/SFX_UI_hover.ogg'],
+      volume: this.sfxVolume * 0.8
+    });
+    
+    this.sounds.sfx.uiClick = new Howl({
+      src: ['/assets/SFX_UI_click.ogg'],
+      volume: this.sfxVolume
+    });
+
+    this.sounds.sfx.uiStartGame = new Howl({
+      src: ['/assets/SFX_UI_startgame.ogg'],
+      volume: this.sfxVolume
+    });
+    
+    this.sounds.sfx.uiQuit = new Howl({
+      src: ['/assets/SFX_UI_quit.ogg'],
+      volume: this.sfxVolume
+    });
+
+    // Game Sound Effects
+    this.sounds.sfx.gameStarting = new Howl({
+      src: ['/assets/SFX_SEVENS_starting.ogg'],
+      volume: this.sfxVolume
+    });
+    
+    this.sounds.sfx.yourTurn = new Howl({
+      src: ['/assets/SFX_SEVENS_yourturn.ogg'],
+      volume: this.sfxVolume
+    });
+    
+    this.sounds.sfx.cardHover = new Howl({
+      src: ['/assets/SFX_SEVENS_cardhover.ogg'],
+      volume: this.sfxVolume * 0.7
+    });
+    
+    this.sounds.sfx.playCard = new Howl({
+      src: ['/assets/SFX_SEVENS_playcard.ogg'],
+      volume: this.sfxVolume
+    });
+    
+    this.sounds.sfx.passOther = new Howl({
+      src: ['/assets/SFX_SEVENS_pass_other.ogg'],
+      volume: this.sfxVolume
+    });
+    
+    this.sounds.sfx.surrender = new Howl({
+      src: ['/assets/SFX_SEVENS_surrender.ogg'],
+      volume: this.sfxVolume
+    });
+    
+    // Scoreboard Sound Effects
+    this.sounds.sfx.scoreboardWin = new Howl({
+      src: ['/assets/SFX_SEVENS_scoreboard_appear_win.ogg'],
+      volume: this.sfxVolume
+    });
+    
+    this.sounds.sfx.scoreboardLose = new Howl({
+      src: ['/assets/SFX_SEVENS_scoreboard_appear_lose.ogg'],
+      volume: this.sfxVolume
+    });
+    
+    this.sounds.sfx.scoreboardTally = new Howl({
+      src: ['/assets/SFX_SEVENS_scoreboard_tally.ogg'],
       volume: this.sfxVolume
     });
 
@@ -145,11 +235,97 @@ class AudioService {
         console.error('Unknown BGM loop type:', type);
     }
   }
-
-  // Play the pass sound effect
+  
+  // NEW SOUND EFFECT METHODS
+  
+  // UI sound effects
+  playUIHover() {
+    if (!this.initialized) this.init();
+    this.sounds.sfx.uiHover.play();
+  }
+  
+  playUIClick() {
+    if (!this.initialized) this.init();
+    this.sounds.sfx.uiClick.play();
+  }
+  
+  playUIStartGame() {
+    if (!this.initialized) this.init();
+    this.sounds.sfx.uiStartGame.play();
+  }
+  
+  playUIQuit() {
+    if (!this.initialized) this.init();
+    this.sounds.sfx.uiQuit.play();
+  }
+  
+  // Game start transition sound - return sound ID for tracking
+  playGameStarting() {
+    if (!this.initialized) this.init();
+    return this.sounds.sfx.gameStarting.play();
+  }
+  
+  // Stop a specific sound by ID
+  stopSound(soundId) {
+    if (soundId) {
+      Howler.stop(soundId);
+    }
+  }
+  
+  // Get the duration of the game starting sound
+  getGameStartingSoundDuration() {
+    return this.sounds.sfx.gameStarting.duration() * 1000; // Convert to milliseconds
+  }
+  
+  // Your turn sound
+  playYourTurnSound() {
+    if (!this.initialized) this.init();
+    this.sounds.sfx.yourTurn.play();
+  }
+  
+  // Card hover sound
+  playCardHoverSound() {
+    if (!this.initialized) this.init();
+    this.sounds.sfx.cardHover.play();
+  }
+  
+  // Play card sound
+  playCardSound() {
+    if (!this.initialized) this.init();
+    this.sounds.sfx.playCard.play();
+  }
+  
+  // Pass sounds
   playPassSound() {
     if (!this.initialized) this.init();
     this.sounds.sfx.pass.play();
+  }
+  
+  playOtherPassSound() {
+    if (!this.initialized) this.init();
+    this.sounds.sfx.passOther.play();
+  }
+  
+  // Surrender sound
+  playSurrenderSound() {
+    if (!this.initialized) this.init();
+    this.sounds.sfx.surrender.play();
+  }
+  
+  // Scoreboard sounds
+  playScoreboardWin() {
+    if (!this.initialized) this.init();
+    this.sounds.sfx.scoreboardWin.play();
+  }
+  
+  playScoreboardLose() {
+    if (!this.initialized) this.init();
+    this.sounds.sfx.scoreboardLose.play();
+  }
+  
+  playScoreboardTally() {
+    if (!this.initialized) this.init();
+    this.sounds.sfx.scoreboardTally.play();
   }
 
   // Stop all background music
@@ -166,6 +342,16 @@ class AudioService {
     
     this.currentBgm = null;
     this.currentLoopSource = null;
+  }
+
+  // Stop all SFX
+  stopAllSFX() {
+    if (!this.initialized) return;
+    
+    // Stop all sound effects
+    Object.values(this.sounds.sfx).forEach(sound => {
+      if (sound) sound.stop();
+    });
   }
 
   // Set master volume
@@ -199,7 +385,19 @@ class AudioService {
     
     if (this.initialized) {
       // Update all SFX volumes
-      this.sounds.sfx.pass.volume(volume);
+      Object.values(this.sounds.sfx).forEach(sound => {
+        if (sound) sound.volume(volume);
+      });
+      
+      // Set UI hover sound slightly quieter
+      if (this.sounds.sfx.uiHover) {
+        this.sounds.sfx.uiHover.volume(volume * 0.8);
+      }
+      
+      // Set card hover sound slightly quieter
+      if (this.sounds.sfx.cardHover) {
+        this.sounds.sfx.cardHover.volume(volume * 0.7);
+      }
     }
     
     this.saveSettings();

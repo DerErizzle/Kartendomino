@@ -1,0 +1,75 @@
+/* Transition Animations */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Game Start Transition */
+.game-start-enter-active,
+.game-start-leave-active {
+  transition: opacity 1s ease;
+}
+
+.game-start-enter-from,
+.game-start-leave-to {
+  opacity: 0;
+}
+
+/* Page Slide Transitions */
+.slide-left-enter-active,
+.slide-left-leave-active,
+.slide-right-enter-active,
+.slide-right-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-left-enter-from,
+.slide-right-leave-to {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+.slide-left-leave-to,
+.slide-right-enter-from {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+/* Card Animation */
+@keyframes card-glow {
+  0% {
+    box-shadow: 0 0 5px rgba(255, 255, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(255, 255, 0, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(255, 255, 0, 0.5);
+  }
+}
+
+.playable-card-animation {
+  animation: card-glow 2s infinite;
+}
+
+/* Pulse Animation for Current Player */
+@keyframes player-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 0, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(255, 255, 0, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 0, 0);
+  }
+}
+
+.current-player-pulse {
+  animation: player-pulse 2s infinite;
+}

@@ -43,6 +43,12 @@ export const socket = io(getBackendUrl(), socketOptions);
 
 // Cache für den letzten bekannten Zustand der Pass-Zähler
 let lastKnownPassCounts = {};
+// Cache für die letzte Karte die gespielt wurde
+let lastPlayedCard = null;
+// Cache für die Gewinner, um wiederholte Sounds zu vermeiden
+let knownWinners = {};
+// Cache für die zuletzt gespielte Kartenanzahl, um Aufgabe zu erkennen
+let lastCardCounts = {};
 
 // Erweiterte Socket Event Listeners mit besserer Fehlerbehandlung
 socket.on('connect', () => {
@@ -123,6 +129,9 @@ socket.on('gameStarted', ({ currentPlayer, hand, cards, playerPositions, handSiz
 
   // Initialisiere den Cache mit den Startwerten
   lastKnownPassCounts = {};
+  lastPlayedCard = null;
+  knownWinners = {};
+  lastCardCounts = { ...handSizes };
 
   store.commit('setGameStarted', true);
   store.commit('setCurrentPlayer', currentPlayer);
@@ -132,8 +141,63 @@ socket.on('gameStarted', ({ currentPlayer, hand, cards, playerPositions, handSiz
   store.commit('setHandSizes', handSizes || {});
 });
 
+// Helfer-Funktion, um zu erkennen, ob ein Spieler aufgegeben hat
+function detectSurrender(oldHandSizes, newHandSizes) {
+  const surrenderedPlayers = [];
+  
+  // Gehe alle Spieler durch
+  Object.keys(newHandSizes).forEach(player => {
+    // Wenn ein Spieler plötzlich 0 Karten hat, hat er wahrscheinlich aufgegeben
+    if (oldHandSizes[player] > 0 && newHandSizes[player] === 0) {
+      // Nicht hinzufügen, wenn es ein bekannter Gewinner ist
+      if (!knownWinners[player]) {
+        surrenderedPlayers.push(player);
+      }
+    }
+  });
+  
+  return surrenderedPlayers;
+}
+
 socket.on('turnUpdate', ({ currentPlayer, cards, handSizes }) => {
   console.log('Turn update received:', { currentPlayer, handSizes });
+  
+  const username = store.state.username;
+  const oldCurrentPlayer = store.state.currentPlayer;
+  
+  // Play card sound when a card is played (cards length increased)
+  const oldCardsLength = store.state.cards ? store.state.cards.length : 0;
+  
+  if (cards && cards.length > oldCardsLength) {
+    // Only play sound if it's not the player who played the card 
+    // (the player's own card sound is played directly on click)
+    if (oldCurrentPlayer !== username) {
+      audioService.playCardSound();
+    }
+  }
+  
+  // Prüfe auf Aufgabe-Aktionen durch Vergleich der Handgrößen
+  if (handSizes) {
+    const oldHandSizes = lastCardCounts;
+    const surrenderedPlayers = detectSurrender(oldHandSizes, handSizes);
+    
+    if (surrenderedPlayers.length > 0) {
+      // Spiele für jeden aufgebenden Spieler den Sound ab
+      surrenderedPlayers.forEach(player => {
+        if (player !== username) {
+          console.log('Player surrendered (detected in turnUpdate):', player);
+          audioService.playSurrenderSound();
+          
+          // Markiere als bekannten Gewinner
+          knownWinners[player] = true;
+        }
+      });
+    }
+    
+    // Aktualisiere Cache
+    lastCardCounts = { ...handSizes };
+  }
+  
   store.commit('setCurrentPlayer', currentPlayer);
   store.commit('setCards', cards || []);
   if (handSizes) {
@@ -157,7 +221,7 @@ socket.on('passUpdate', ({ player, passCounts }) => {
 
     if (currentPassCount > previousPassCount) {
       // Der Spieler hat wirklich gepasst, spiele den Sound ab
-      audioService.playPassSound();
+      audioService.playOtherPassSound();
     }
   }
 
@@ -171,6 +235,19 @@ socket.on('passUpdate', ({ player, passCounts }) => {
 
 socket.on('playerForfeit', ({ player, cards, passCounts, handSizes }) => {
   console.log('Player forfeit:', player, handSizes);
+  
+  const currentUsername = store.state.username;
+  
+  // Play surrender sound if another player surrenders
+  // (eigenes Aufgeben wird direkt in der Game-Komponente gehandhabt)
+  if (player !== currentUsername && !knownWinners[player]) {
+    console.log('Playing surrender sound for player:', player);
+    audioService.playSurrenderSound();
+    
+    // Markieren als bekannten Gewinner
+    knownWinners[player] = true;
+  }
+  
   store.commit('setCards', cards || []);
 
   // Aktualisiere den Pass-Cache
@@ -178,10 +255,12 @@ socket.on('playerForfeit', ({ player, cards, passCounts, handSizes }) => {
     lastKnownPassCounts = { ...passCounts };
   }
 
-  store.commit('setPassCounts', passCounts || {});
+  // Aktualisiere den Handgrößen-Cache
   if (handSizes) {
+    lastCardCounts = { ...handSizes };
     store.commit('setHandSizes', handSizes);
   }
+  
   store.commit('addWinner', player);
 });
 
@@ -191,14 +270,20 @@ socket.on('playerDisconnected', ({ username }) => {
 
 socket.on('gameOver', ({ winners, results }) => {
   console.log('Game over:', winners, results);
+  
   if (winners && winners.length) {
     winners.forEach(winner => {
+      if (!knownWinners[winner]) {
+        knownWinners[winner] = true;
+      }
       store.commit('addWinner', winner);
     });
   }
+  
   if (results) {
     store.commit('setGameResults', results);
   }
+  
   store.commit('setGameOver', true);
 });
 

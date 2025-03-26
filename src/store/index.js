@@ -1,6 +1,5 @@
 import { createStore } from 'vuex'
 import { socket } from '../services/socketService'
-import { findPlayableCards, findPositionForCard } from '../utils/cardUtils'
 import audioService from '../services/audioService'
 
 export default createStore({
@@ -18,7 +17,10 @@ export default createStore({
     playerPositions: {},
     winners: [],
     gameOver: false,
-    gameResults: []
+    gameResults: [],
+    
+    // Flag um doppelte Spielstarts zu verhindern
+    gameStartCalled: false
   },
   getters: {
     playableCards: (state) => {
@@ -26,7 +28,22 @@ export default createStore({
         return [];
       }
 
-      return findPlayableCards(state.hand, state.cards);
+      return state.hand.filter(card => {
+        return state.cards.some(boardCard => {
+          // Ignoriere isolierte Karten
+          if (boardCard.isIsolated) {
+            return false;
+          }
+
+          // Gleiche Farbe und Wert ist um 1 höher oder niedriger
+          const sameSuit = boardCard.suit === card.suit;
+          const cardValue = parseInt(card.value);
+          const boardValue = parseInt(boardCard.value);
+
+          // Benachbarte Karten
+          return sameSuit && Math.abs(cardValue - boardValue) === 1;
+        });
+      });
     },
 
     remainingPasses: (state) => {
@@ -66,6 +83,10 @@ export default createStore({
 
     setGameStarted(state, gameStarted) {
       state.gameStarted = gameStarted;
+    },
+    
+    setGameStartCalled(state, value) {
+      state.gameStartCalled = value;
     },
 
     setCurrentPlayer(state, player) {
@@ -115,6 +136,7 @@ export default createStore({
 
     resetGame(state) {
       state.gameStarted = false;
+      state.gameStartCalled = false;
       state.currentPlayer = null;
       state.cards = [];
       state.hand = [];
@@ -122,6 +144,7 @@ export default createStore({
       state.passCounts = {};
       state.winners = [];
       state.gameOver = false;
+      state.gameResults = [];
     }
   },
   actions: {
@@ -189,10 +212,16 @@ export default createStore({
           if (response && response.error) {
             console.error('Reconnection failed:', response.error);
 
-            localStorage.removeItem('gameSession');
-            commit('setRoomId', null);
-            
-            reject(response.error);
+            if (response.error.includes && response.error.includes("Spiel bereits gestartet")) {
+              // Wenn das Spiel bereits gestartet ist, nicht aus dem Raum werfen
+              // Wir bleiben im Raum und warten auf die GameStarted-Nachricht
+              reject(response.error);
+            } else {
+              // Bei anderen Fehlern die Session zurücksetzen
+              localStorage.removeItem('gameSession');
+              commit('setRoomId', null);
+              reject(response.error);
+            }
           } else {
             resolve();
           }
@@ -200,8 +229,31 @@ export default createStore({
       });
     },
 
-    startGame({ state }) {
+    startGame({ state, commit }) {
+      // Verhindere doppelte Aufrufe
+      if (state.gameStartCalled) {
+        console.log('Game start already called, ignoring duplicate request');
+        return;
+      }
+      
+      // Markiere als aufgerufen
+      commit('setGameStartCalled', true);
+      
+      // Markiere das Spiel sofort als gestartet, bevor die Server-Antwort kommt
+      // Dies hilft bei der Steuerung des Übergangs
+      commit('setGameStarted', true);
+      
+      // Spiel auf dem Server starten
       socket.emit('startGame', { roomId: state.roomId });
+      
+      // Spielsitzung im localStorage aktualisieren
+      const gameSession = {
+        username: state.username,
+        roomId: state.roomId,
+        gameStarted: true,
+        timestamp: new Date().getTime()
+      };
+      localStorage.setItem('gameSession', JSON.stringify(gameSession));
     },
 
     playCard({ state }, { card, position }) {

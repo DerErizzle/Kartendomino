@@ -1,10 +1,14 @@
 <template>
   <div id="app">
-    <router-view />
+    <router-view v-slot="{ Component }">
+      <component :is="Component" />
+    </router-view>
   </div>
 </template>
 
 <script>
+import audioService from './services/audioService';
+
 export default {
   name: 'App',
   created() {
@@ -52,6 +56,10 @@ export default {
         localStorage.removeItem('gameSession');
       }
     }
+  },
+  mounted() {
+    // Audio-Service initialisieren
+    audioService.init();
   }
 }
 </script>
