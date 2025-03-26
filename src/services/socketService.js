@@ -1,5 +1,6 @@
 import { io } from 'socket.io-client';
 import store from '../store';
+import audioService from './audioService';
 
 // Bestimme die richtige Basis-URL basierend auf der Umgebung
 const baseURL = process.env.NODE_ENV === 'production'
@@ -16,6 +17,9 @@ export const socket = io(baseURL, {
   timeout: 20000,
   transports: ['websocket', 'polling'] // Versuche zuerst WebSocket, dann Polling
 });
+
+// Cache für den letzten bekannten Zustand der Pass-Zähler
+let lastKnownPassCounts = {};
 
 // Erweiterte Socket Event Listeners
 socket.on('connect', () => {
@@ -86,6 +90,9 @@ socket.on('gameStarted', ({ currentPlayer, hand, cards, playerPositions, handSiz
   };
   localStorage.setItem('gameSession', JSON.stringify(gameSession));
 
+  // Initialisiere den Cache mit den Startwerten
+  lastKnownPassCounts = {};
+
   store.commit('setGameStarted', true);
   store.commit('setCurrentPlayer', currentPlayer);
   store.commit('setHand', hand || []);
@@ -109,12 +116,37 @@ socket.on('handUpdate', ({ hand }) => {
 
 socket.on('passUpdate', ({ player, passCounts }) => {
   console.log('Pass update received:', passCounts);
+  
+  // Nur einen Sound abspielen, wenn ein Spieler tatsächlich gepasst hat
+  // (d.h. sein Pass-Zähler hat sich erhöht)
+  if (player && player !== store.state.username && passCounts) {
+    // Prüfen, ob der Pass-Zähler erhöht wurde
+    const currentPassCount = passCounts[player] || 0;
+    const previousPassCount = lastKnownPassCounts[player] || 0;
+    
+    if (currentPassCount > previousPassCount) {
+      // Der Spieler hat wirklich gepasst, spiele den Sound ab
+      audioService.playPassSound();
+    }
+  }
+  
+  // Cache aktualisieren
+  if (passCounts) {
+    lastKnownPassCounts = { ...passCounts };
+  }
+  
   store.commit('setPassCounts', passCounts || {});
 });
 
 socket.on('playerForfeit', ({ player, cards, passCounts, handSizes }) => {
   console.log('Player forfeit:', player, handSizes);
   store.commit('setCards', cards || []);
+  
+  // Aktualisiere den Pass-Cache
+  if (passCounts) {
+    lastKnownPassCounts = { ...passCounts };
+  }
+  
   store.commit('setPassCounts', passCounts || {});
   if (handSizes) {
     store.commit('setHandSizes', handSizes);

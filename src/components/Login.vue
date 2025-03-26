@@ -1,5 +1,8 @@
 <template>
   <div class="login-container">
+    <!-- Audio Controls -->
+    <AudioControls />
+    
     <div class="login-box">
       <h1>Kartendomino</h1>
       
@@ -52,8 +55,14 @@
 </template>
 
 <script>
+import AudioControls from './AudioControls.vue';
+import audioService from '../services/audioService';
+
 export default {
   name: 'Login',
+  components: {
+    AudioControls
+  },
   data() {
     return {
       username: localStorage.getItem('username') || '',
@@ -108,6 +117,14 @@ export default {
       this.roomId = this.$route.query.roomId;
       this.prefillRoomId = true;
     }
+  },
+  mounted() {
+    // Initialize audio service but don't play music
+    audioService.init();
+  },
+  beforeUnmount() {
+    // No need to stop music when navigating to game room
+    // as the Game component will handle the transition
   }
 }
 </script>

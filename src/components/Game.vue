@@ -1,6 +1,8 @@
 <template>
   <div class="game-container">
     <div class="game-table">
+      <!-- Audio Controls -->
+      <AudioControls />
 
       <!-- Debug Info -->
       <div class="debug-info" v-if="showDebug">
@@ -79,13 +81,16 @@
 import Card from './Card.vue';
 import CardHand from './CardHand.vue';
 import Player from './Player.vue';
+import AudioControls from './AudioControls.vue';
+import audioService from '../services/audioService';
 
 export default {
   name: 'Game',
   components: {
     Card,
     CardHand,
-    Player
+    Player,
+    AudioControls
   },
   props: {
     roomId: {
@@ -98,8 +103,9 @@ export default {
       handMaxWidth: 0,
       windowWidth: 0,
       windowHeight: 0,
-      showDebug: true, // Debug-Informationen anzeigen
-      gameResults: []
+      showDebug: false, // Debug-Informationen anzeigen
+      gameResults: [],
+      didIWin: false // Track if player won for music selection
     };
   },
   computed: {
@@ -189,6 +195,23 @@ export default {
     // Alle anderen Karten
     nonSevenCards() {
       return this.cards.filter(card => card.value !== '07');
+    }
+  },
+  watch: {
+    gameOver(newVal) {
+      if (newVal) {
+        // Determine if player won to choose the right music
+        if (this.$store.state.gameResults && this.$store.state.gameResults.length > 0) {
+          const playerResult = this.$store.state.gameResults.find(r => r.username === this.username);
+          if (playerResult && playerResult.place === 1) {
+            this.didIWin = true;
+            audioService.playBgm('win');
+          } else {
+            this.didIWin = false;
+            audioService.playBgm('lose');
+          }
+        }
+      }
     }
   },
   methods: {
@@ -281,6 +304,9 @@ export default {
         this.$store.dispatch('pass', {
           roomId: this.roomId
         });
+        
+        // Play pass sound effect directly when user clicks pass
+        audioService.playPassSound();
       }
     },
 
@@ -293,6 +319,7 @@ export default {
     },
 
     leaveGame() {
+      audioService.stopAllBgm();
       this.$store.dispatch('leaveRoom', {
         roomId: this.roomId
       });
@@ -338,9 +365,16 @@ export default {
       opponents: this.opponents,
       currentPlayer: this.currentPlayer
     });
+    
+    // Initialize audio and start game music
+    audioService.init();
+    audioService.playBgm('game');
   },
   beforeUnmount() {
     window.removeEventListener('resize', this.updateWindowSize);
+    
+    // Stop all audio when leaving the game
+    audioService.stopAllBgm();
 
     // Beim Verlassen der Komponente den Raum verlassen
     if (this.roomId && !this.gameOver) {

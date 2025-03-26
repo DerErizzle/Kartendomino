@@ -1,6 +1,7 @@
 import { createStore } from 'vuex'
 import { socket } from '../services/socketService'
 import { findPlayableCards, findPositionForCard } from '../utils/cardUtils'
+import audioService from '../services/audioService'
 
 export default createStore({
   state: {

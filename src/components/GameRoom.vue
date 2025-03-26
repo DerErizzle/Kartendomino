@@ -1,5 +1,8 @@
 <template>
   <div class="game-room">
+    <!-- Audio Controls -->
+    <AudioControls />
+    
     <div class="room-header">
       <h1>Warteraum</h1>
       <div class="room-info">
@@ -38,8 +41,14 @@
 </template>
 
 <script>
+import AudioControls from './AudioControls.vue';
+import audioService from '../services/audioService';
+
 export default {
   name: 'GameRoom',
+  components: {
+    AudioControls
+  },
   props: {
     roomId: {
       type: String,
@@ -133,7 +142,14 @@ export default {
   created() {
     this.attemptToJoinRoom();
   },
+  mounted() {
+    // Initialize audio service but don't play music
+    audioService.init();
+  },
   beforeRouteLeave(to, from, next) {
+    // Simply proceed to next route
+    // No music to stop since we don't play any on this screen
+    
     // Raum nur verlassen, wenn nicht zum Spiel gewechselt wird
     if (to.name !== 'Game') {
       this.$store.dispatch('leaveRoom', { roomId: this.roomId })
