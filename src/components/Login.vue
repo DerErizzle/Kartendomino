@@ -9,36 +9,42 @@
           type="text" 
           id="username" 
           v-model="username" 
-          placeholder="Gib deinen Namen ein"
-          @keyup.enter="username ? showOptions = true : null"
+          placeholder="Gib deinen Namen ein (3-15 Zeichen)"
+          @input="validateUsername"
         />
       </div>
       
-      <button 
-        class="btn-primary" 
-        @click="showOptions = true" 
-        :disabled="!username"
-      >
-        Weiter
-      </button>
-      
-      <div v-if="showOptions" class="options">
-        <div class="option-buttons">
-          <button @click="createRoom">Raum erstellen</button>
-          <button @click="showJoinForm = true">Raum beitreten</button>
+      <div class="action-container">
+        <div class="action-box">
+          <h3>Neues Spiel</h3>
+          <button 
+            class="btn-action create" 
+            @click="createRoom" 
+            :disabled="!isValidUsername"
+          >
+            Raum erstellen
+          </button>
         </div>
         
-        <div v-if="showJoinForm" class="join-form">
-          <input 
-            type="text" 
-            v-model="roomId" 
-            placeholder="Raumcode eingeben"
-            maxlength="3"
-            pattern="[0-9]{3}"
-            @keyup.enter="joinRoom"
-          />
-          <button @click="joinRoom" :disabled="!isValidRoomId">Beitreten</button>
-          <button class="secondary" @click="showJoinForm = false">Zurück</button>
+        <div class="action-box" :class="{ 'highlight': prefillRoomId }">
+          <h3>Beitreten</h3>
+          <div class="join-form">
+            <input 
+              type="text" 
+              v-model="roomId" 
+              placeholder="Raumcode eingeben"
+              maxlength="3"
+              pattern="[0-9]{3}"
+              @keyup.enter="joinRoom"
+            />
+            <button 
+              class="btn-action join"
+              @click="joinRoom" 
+              :disabled="!isValidUsername || !isValidRoomId"
+            >
+              Beitreten
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -51,32 +57,39 @@ export default {
   data() {
     return {
       username: localStorage.getItem('username') || '',
-      showOptions: false,
-      showJoinForm: false,
-      roomId: ''
+      roomId: '',
+      prefillRoomId: false
     }
   },
   computed: {
+    isValidUsername() {
+      return this.username.length >= 3 && this.username.length <= 15;
+    },
     isValidRoomId() {
       return /^\d{3}$/.test(this.roomId);
     }
   },
   methods: {
+    validateUsername() {
+    },
+    
     createRoom() {
-      this.$store.dispatch('createRoom', this.username).then((roomId) => {
-        if (roomId) {
-          this.$router.push({ name: 'GameRoom', params: { roomId } });
-        } else {
+      if (this.isValidUsername) {
+        this.$store.dispatch('createRoom', this.username).then((roomId) => {
+          if (roomId) {
+            this.$router.push({ name: 'GameRoom', params: { roomId } });
+          } else {
+            alert('Fehler beim Erstellen des Raums. Bitte versuche es erneut.');
+          }
+        }).catch(error => {
+          console.error('Raumerstellung fehlgeschlagen:', error);
           alert('Fehler beim Erstellen des Raums. Bitte versuche es erneut.');
-        }
-      }).catch(error => {
-        console.error('Raumerstellung fehlgeschlagen:', error);
-        alert('Fehler beim Erstellen des Raums. Bitte versuche es erneut.');
-      });
+        });
+      }
     },
     
     joinRoom() {
-      if (this.isValidRoomId) {
+      if (this.isValidUsername && this.isValidRoomId) {
         this.$store.dispatch('joinRoom', {
           username: this.username,
           roomId: this.roomId
@@ -87,6 +100,13 @@ export default {
           alert('Fehler beim Beitreten zum Raum. Bitte überprüfe den Raumcode.');
         });
       }
+    }
+  },
+  created() {
+    // Prüfen, ob ein Raumcode in der URL ist
+    if (this.$route.query.roomId) {
+      this.roomId = this.$route.query.roomId;
+      this.prefillRoomId = true;
     }
   }
 }
@@ -116,6 +136,12 @@ h1 {
   margin-bottom: 30px;
 }
 
+h3 {
+  color: #1b7e44;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
 .form-group {
   margin-bottom: 20px;
 }
@@ -133,81 +159,80 @@ input {
   border: 1px solid #ced4da;
   border-radius: 4px;
   box-sizing: border-box;
+  margin-bottom: 5px;
 }
 
-.btn-primary {
+.action-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.action-box {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.action-box.highlight {
+  background-color: #e8f4ff;
+  box-shadow: 0 0 8px rgba(0, 123, 255, 0.4);
+}
+
+.join-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn-action {
   width: 100%;
   padding: 10px;
-  background-color: #1b7e44;
-  color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 16px;
+  font-weight: bold;
+  transition: all 0.2s ease;
 }
 
-.btn-primary:hover {
-  background-color: #155e34;
+.btn-action:hover:not(:disabled) {
+  transform: translateY(-2px);
 }
 
-.btn-primary:disabled {
-  background-color: #6c757d;
+.btn-action:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
-.options {
-  margin-top: 20px;
+.create {
+  background-color: #28a745;
+  color: white;
 }
 
-.option-buttons {
-  display: flex;
-  justify-content: space-between;
+.create:hover:not(:disabled) {
+  background-color: #218838;
 }
 
-.option-buttons button {
-  width: 48%;
-  padding: 10px;
+.join {
   background-color: #007bff;
   color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
 }
 
-.option-buttons button:hover {
-  background-color: #0056b3;
+.join:hover:not(:disabled) {
+  background-color: #0069d9;
 }
 
-.join-form {
-  margin-top: 20px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.join-form input {
-  flex: 1;
-  min-width: 0;
-}
-
-.join-form button {
-  padding: 10px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.join-form button:hover {
-  background-color: #0056b3;
-}
-
-.join-form button.secondary {
-  background-color: #6c757d;
-}
-
-.join-form button.secondary:hover {
-  background-color: #5a6268;
+@media (max-width: 480px) {
+  .login-box {
+    padding: 20px;
+  }
+  
+  .action-container {
+    gap: 15px;
+  }
 }
 </style>

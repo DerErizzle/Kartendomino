@@ -7,7 +7,7 @@
         <button class="btn-copy" @click="copyRoomCode">Kopieren</button>
       </div>
     </div>
-    
+
     <div class="players-list">
       <h2>Spieler ({{ players.length }}/4)</h2>
       <div class="players">
@@ -19,7 +19,7 @@
           <span class="player-name">{{ player.username }}</span>
           <span v-if="player.isHost" class="host-badge">Host</span>
         </div>
-        
+
         <div v-for="n in (4 - players.length)" :key="`empty-${n}`" class="player empty">
           <div class="avatar empty">
             <span>?</span>
@@ -28,17 +28,11 @@
         </div>
       </div>
     </div>
-    
+
     <div class="room-actions">
-      <button 
-        v-if="isHost" 
-        class="btn-start" 
-        @click="startGame" 
-        :disabled="players.length < 1"
-      >
-        Spiel starten {{ players.length < 4 ? '(mit Bots)' : '' }}
-      </button>
-      <button class="btn-leave" @click="leaveRoom">Raum verlassen</button>
+      <button v-if="isHost" class="btn-start" @click="startGame" :disabled="players.length < 1">
+        Spiel starten {{ players.length < 4 ? '(mit Bots)' : '' }} </button>
+          <button class="btn-leave" @click="leaveRoom">Raum verlassen</button>
     </div>
   </div>
 </template>
@@ -74,16 +68,16 @@ export default {
     startGame() {
       this.$store.dispatch('startGame');
     },
-    
+
     leaveRoom() {
-      this.$store.dispatch('leaveRoom');
+      this.$store.dispatch('leaveRoom', { roomId: this.roomId });
       this.$router.push('/');
     },
-    
+
     getInitials(name) {
       return name.split(' ').map(n => n[0]).join('').toUpperCase();
     },
-    
+
     copyRoomCode() {
       navigator.clipboard.writeText(this.roomId).then(() => {
         alert('Raumcode in die Zwischenablage kopiert!');

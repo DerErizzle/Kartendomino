@@ -223,6 +223,25 @@ function findPositionForCard(card, boardCards) {
   return null;
 }
 
+function getUniqueUsername(username, players) {
+  // Prüfen, ob der Name bereits existiert
+  if (!players.some(p => p.username === username)) {
+    return username; // Name ist bereits eindeutig
+  }
+  
+  // Falls Name existiert, füge Zahl hinzu (2, 3, etc.)
+  let counter = 2;
+  let newUsername = `${username} ${counter}`;
+  
+  // Erhöhe Zähler, bis ein eindeutiger Name gefunden wird
+  while (players.some(p => p.username === newUsername)) {
+    counter++;
+    newUsername = `${username} ${counter}`;
+  }
+  
+  return newUsername;
+}
+
 function generateRoomId() {
   return Math.floor(100 + Math.random() * 900).toString(); // 3-stellige Zahl
 }
@@ -312,38 +331,44 @@ io.on('connection', (socket) => {
       if (callback) callback({ error: 'Raum existiert nicht.' });
       return socket.emit('error', { message: 'Raum existiert nicht.' });
     }
-
+  
     // Prüfen, ob das Spiel bereits gestartet wurde
     if (rooms[roomId].gameStarted) {
       if (callback) callback({ error: 'Spiel bereits gestartet.' });
       return socket.emit('error', { message: 'Spiel bereits gestartet.' });
     }
-
+  
     // Prüfen, ob der Raum voll ist
     if (rooms[roomId].players.length >= 4) {
       if (callback) callback({ error: 'Raum ist voll.' });
       return socket.emit('error', { message: 'Raum ist voll.' });
     }
-
+  
+    // Eindeutigen Benutzernamen erstellen bei Namenskonflikten
+    const uniqueUsername = getUniqueUsername(username, rooms[roomId].players);
+  
     // Cleanup-Timeout abbrechen, falls vorhanden
     if (roomCleanupTimeouts[roomId]) {
       clearTimeout(roomCleanupTimeouts[roomId]);
       delete roomCleanupTimeouts[roomId];
     }
-
+  
     // Spieler dem Raum hinzufügen
     rooms[roomId].players.push({
       id: socket.id,
-      username,
+      username: uniqueUsername,
       isHost: false
     });
-
+  
     // Socket dem Raum beitreten lassen
     socket.join(roomId);
-
+  
     // Erfolgreiche Antwort senden
-    if (callback) callback({ success: true });
-
+    if (callback) callback({ 
+      success: true, 
+      username: uniqueUsername // Gib den möglicherweise geänderten Namen zurück
+    });
+  
     // Spielerliste aktualisieren
     io.to(roomId).emit('playersUpdate', {
       players: rooms[roomId].players
