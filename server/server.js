@@ -40,7 +40,7 @@ app.get('*', (req, res) => {
 });
 
 // Utilities für das Kartenspiel
-const SUITS = ['c', 'd', 'h', 's']; // clubs, diamonds, hearts, spades
+const SUITS = ['s', 'c', 'h', 'd'];
 const VALUES = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13'];
 
 // Hilfsfunktionen

@@ -54,7 +54,7 @@ export default {
     sortedCards() {
       // Sortieren nach Farbe und dann nach Wert
       return [...this.cards].sort((a, b) => {
-        const suits = ['c', 'd', 'h', 's'];
+        const suits = ['s', 'c', 'h', 'd'];
         if (a.suit !== b.suit) {
           return suits.indexOf(a.suit) - suits.indexOf(b.suit);
         }

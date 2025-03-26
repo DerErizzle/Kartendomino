@@ -360,7 +360,7 @@ export default {
 
     getSevenCardPosition(card) {
       // Die 7er-Karten sollen in der Mitte untereinander sein
-      const suitIndex = ['c', 'd', 'h', 's'].indexOf(card.suit);
+      const suitIndex = ['s', 'c', 'h', 'd'].indexOf(card.suit);
       return {
         row: suitIndex,
         col: 7 // In der horizontalen Mitte (Spalte 7)
@@ -373,7 +373,7 @@ export default {
       }
 
       // Position basierend auf Farbe und Wert berechnen
-      const suitIndex = ['c', 'd', 'h', 's'].indexOf(card.suit);
+      const suitIndex = ['s', 'c', 'h', 'd'].indexOf(card.suit);
       const value = parseInt(card.value);
 
       // Werte <= 6 sind links der 7, Werte >= 8 sind rechts der 7
@@ -407,7 +407,7 @@ export default {
           if (Math.abs(cardValue - boardValue) === 1) {
             // Position berechnen
             const position = {
-              row: ['c', 'd', 'h', 's'].indexOf(card.suit),
+              row: ['s', 'c', 'h', 'd'].indexOf(card.suit),
               col: cardValue
             };
 

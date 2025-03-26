@@ -1,6 +1,6 @@
 // Hilffunktionen für die Kartenpositionierung auf dem Server
 
-const SUITS = ['c', 'd', 'h', 's']; // clubs, diamonds, hearts, spades
+const SUITS = ['s', 'c', 'h', 'd']; // spades, clubs, hearts, diamonds
 
 // Berechnet die Position für die 7er-Karten in der Mitte
 function getPositionFor7(suit) {
