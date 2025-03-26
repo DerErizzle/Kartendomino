@@ -5,21 +5,38 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
+const isProduction = process.env.NODE_ENV === 'production';
+
+const PORT = process.env.PORT || (isProduction ? 8080 : 3000);
+
+const allowedOrigins = isProduction 
+  ? ['https://erizzle.de'] 
+  : ['http://localhost:8080', 'http://localhost:3000', 'http://127.0.0.1:8080'];
+
 const io = socketIo(server, {
+  transports: ['polling'],
   cors: {
-    origin: "*",
+    origin: function(origin, callback) {
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.indexOf(origin) !== -1 || !isProduction) {
+        callback(null, true);
+      } else {
+        callback(new Error('CORS policy restriction'));
+      }
+    },
     methods: ["GET", "POST"]
   },
   pingTimeout: 60000,
   pingInterval: 25000
 });
 
-// Statische Dateien aus dem dist-Verzeichnis servieren
-app.use(express.static(path.join(__dirname, '../dist')));
+// Statische Dateien aus dem übergeordneten Verzeichnis servieren
+app.use(express.static(path.join(__dirname, '..')));
 
 // Für alle Anfragen die index.html senden (SPA)
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
+  res.sendFile(path.join(__dirname, '..', 'index.html'));
 });
 
 // Utilities für das Kartenspiel
@@ -1304,7 +1321,7 @@ function makeAutomaticBotMove(room) {
 }
 
 // Server starten
-const PORT = process.env.PORT || 3000;
+
 server.listen(PORT, () => {
   console.log(`Server läuft auf Port ${PORT}`);
 });

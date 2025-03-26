@@ -22,5 +22,9 @@
         "@vue/cli-plugin-router": "~5.0.0",
         "@vue/cli-plugin-vuex": "~5.0.0",
         "@vue/cli-service": "~5.0.0"
-    }
+    },
+    "engines": {
+        "node": ">=14.0.0"
+    },
+    "main": "server/server.js"
 }

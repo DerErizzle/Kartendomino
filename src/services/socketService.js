@@ -2,39 +2,65 @@ import { io } from 'socket.io-client';
 import store from '../store';
 import audioService from './audioService';
 
-// Bestimme die richtige Basis-URL basierend auf der Umgebung
-const baseURL = process.env.NODE_ENV === 'production'
-  ? window.location.origin // Verwende die aktuelle Domain im Produktionsmodus
-  : 'http://localhost:3000'; // Explizite URL im Entwicklungsmodus
+// Verbesserte Backend-URL-Erkennung
+const getBackendUrl = () => {
+  const isProduction = process.env.NODE_ENV === 'production';
 
-// Socket-Instance mit verbesserten Einstellungen erstellen
-export const socket = io(baseURL, {
+  if (isProduction) {
+    // Im Produktionsmodus: Verwende dieselbe Domain und Schema/Protokoll
+    const protocol = window.location.protocol; // 'https:' oder 'http:'
+    const hostname = window.location.hostname; // 'erizzle.de'
+
+    // Verwende leeren Port-String (statt :undefined), wenn kein Port vorhanden ist
+    const port = window.location.port ? `:${window.location.port}` : '';
+
+    return `${protocol}//${hostname}${port}`;
+  } else {
+    // Im Entwicklungsmodus: Verwende localhost mit Port 3000 für Backend
+    return 'http://localhost:3000';
+  }
+};
+
+const socketOptions = {
   autoConnect: true,
   reconnection: true,
   reconnectionAttempts: 10,
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
   timeout: 20000,
-  transports: ['websocket', 'polling'] // Versuche zuerst WebSocket, dann Polling
+  transports: ['polling'] // Nur Polling verwenden, kein WebSocket
+};
+
+// Ausgabe der Verbindungsdaten für Debugging
+console.log('Socket.io wird verbunden mit:', {
+  url: getBackendUrl(),
+  options: socketOptions,
+  environment: process.env.NODE_ENV || 'development'
 });
+
+// Socket-Instance erstellen
+export const socket = io(getBackendUrl(), socketOptions);
 
 // Cache für den letzten bekannten Zustand der Pass-Zähler
 let lastKnownPassCounts = {};
 
-// Erweiterte Socket Event Listeners
+// Erweiterte Socket Event Listeners mit besserer Fehlerbehandlung
 socket.on('connect', () => {
-  console.log('Connected to server', socket.id);
+  console.log('Connected to server:', {
+    socketId: socket.id,
+    connected: socket.connected,
+    transport: socket.io.engine.transport.name
+  });
 
-  // Prüfe, ob eine Session wiederhergestellt werden muss
+  // Versuche Session wiederherzustellen
   const savedSession = localStorage.getItem('gameSession');
   if (savedSession) {
     try {
       const session = JSON.parse(savedSession);
       const currentTime = new Date().getTime();
 
-      // Prüfe, ob die Session nicht älter als 2 Stunden ist
       if (session.timestamp && (currentTime - session.timestamp < 7200000)) {
-        console.log('Attempting to reconnect to previous session...');
+        console.log('Attempting to reconnect to previous session:', session);
       }
     } catch (error) {
       console.error('Error parsing saved session:', error);
@@ -43,7 +69,12 @@ socket.on('connect', () => {
 });
 
 socket.on('connect_error', (error) => {
-  console.error('Connection error:', error);
+  console.error('Connection error:', {
+    message: error.message,
+    description: error.description,
+    transport: socket.io?.engine?.transport?.name || 'unknown',
+    url: getBackendUrl()
+  });
 });
 
 socket.on('disconnect', (reason) => {
@@ -116,37 +147,37 @@ socket.on('handUpdate', ({ hand }) => {
 
 socket.on('passUpdate', ({ player, passCounts }) => {
   console.log('Pass update received:', passCounts);
-  
+
   // Nur einen Sound abspielen, wenn ein Spieler tatsächlich gepasst hat
   // (d.h. sein Pass-Zähler hat sich erhöht)
   if (player && player !== store.state.username && passCounts) {
     // Prüfen, ob der Pass-Zähler erhöht wurde
     const currentPassCount = passCounts[player] || 0;
     const previousPassCount = lastKnownPassCounts[player] || 0;
-    
+
     if (currentPassCount > previousPassCount) {
       // Der Spieler hat wirklich gepasst, spiele den Sound ab
       audioService.playPassSound();
     }
   }
-  
+
   // Cache aktualisieren
   if (passCounts) {
     lastKnownPassCounts = { ...passCounts };
   }
-  
+
   store.commit('setPassCounts', passCounts || {});
 });
 
 socket.on('playerForfeit', ({ player, cards, passCounts, handSizes }) => {
   console.log('Player forfeit:', player, handSizes);
   store.commit('setCards', cards || []);
-  
+
   // Aktualisiere den Pass-Cache
   if (passCounts) {
     lastKnownPassCounts = { ...passCounts };
   }
-  
+
   store.commit('setPassCounts', passCounts || {});
   if (handSizes) {
     store.commit('setHandSizes', handSizes);
