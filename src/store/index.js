@@ -137,17 +137,16 @@ export default createStore({
       })
     },
     joinRoom({ commit }, { username, roomId }) {
-      commit('setUsername', username)
-      commit('setRoomId', roomId)
       return new Promise((resolve, reject) => {
         socket.emit('joinRoom', { username, roomId }, (response) => {
           if (response && response.error) {
-            commit('setRoomId', null)
+            console.error('Fehler beim Beitreten in Raum:', response.error)
             reject(response.error)
           } else {
             if (response && response.username && response.username !== username) {
               commit('setUsername', response.username)
             }
+            commit('setRoomId', roomId)
             resolve()
           }
         })

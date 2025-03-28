@@ -53,7 +53,7 @@ socket.on('connect_error', (error) => {
     transport: socket.io?.engine?.transport?.name || 'unknown',
     url: getBackendUrl()
   })
-  router.push('/')
+  //router.push('/')
 })
 
 socket.on('disconnect', (reason) => {
@@ -73,7 +73,7 @@ socket.on('reconnect_attempt', (attemptNumber) => {
 
 socket.on('error', (error) => {
   console.error('Socket error:', error)
-  router.push('/')
+  //router.push('/')
 })
 
 socket.on('roomCreated', ({ roomId }) => {
@@ -113,7 +113,6 @@ function detectSurrender(oldHandSizes, newHandSizes) {
 }
 
 socket.on('turnUpdate', ({ currentPlayer, cards, handSizes }) => {
-  console.log('Turn update received:', { currentPlayer, handSizes })
   const username = store.state.username
   const oldCurrentPlayer = store.state.currentPlayer
   const oldCardsLength = store.state.cards ? store.state.cards.length : 0
@@ -121,20 +120,6 @@ socket.on('turnUpdate', ({ currentPlayer, cards, handSizes }) => {
     if (oldCurrentPlayer !== username) {
       audioService.playCardSound()
     }
-  }
-  if (handSizes) {
-    const oldHandSizes = lastCardCounts
-    const surrenderedPlayers = detectSurrender(oldHandSizes, handSizes)
-    if (surrenderedPlayers.length > 0) {
-      surrenderedPlayers.forEach(player => {
-        if (player !== username) {
-          console.log('Player surrendered (detected in turnUpdate):', player)
-          audioService.playSurrenderSound()
-          knownWinners[player] = true
-        }
-      })
-    }
-    lastCardCounts = { ...handSizes }
   }
   store.commit('setCurrentPlayer', currentPlayer)
   store.commit('setCards', cards || [])
